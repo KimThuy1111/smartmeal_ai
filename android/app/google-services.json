@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "1032047333639",
+    "project_id": "smartmealaii",
+    "storage_bucket": "smartmealaii.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1032047333639:android:0ac034d14af716a14235a2",
+        "android_client_info": {
+          "package_name": "com.example.smartmeal_ai"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBd6qbQ9G5gyjFThN_I7HAGWA4HW-xbZq8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1032047333639:android:7c8e69be43ec63184235a2",
+        "android_client_info": {
+          "package_name": "com.example.smartmealaii"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBd6qbQ9G5gyjFThN_I7HAGWA4HW-xbZq8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
