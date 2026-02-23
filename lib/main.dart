@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
 import 'package:smartmeal_ai/screens/LoginScreen.dart';
+import 'package:smartmeal_ai/screens/HomeScreen.dart';
 import 'firebase_options.dart';
 
 void main() async {
@@ -25,7 +28,38 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
 
-      home: const LoginScreen(),
+      home: const AuthWrapper(),
+    );
+  }
+}
+
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+
+        //Kiểm tra trạng thái đăng nhập
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+
+        //Nếu đã đăng nhập
+        if (snapshot.hasData) {
+          return const HomeScreen();
+        }
+
+        //Nếu chưa đăng nhập
+        return const LoginScreen();
+      },
     );
   }
 }
