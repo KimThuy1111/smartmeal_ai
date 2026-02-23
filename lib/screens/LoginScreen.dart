@@ -20,7 +20,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   bool isLoading = false;
-  bool showPass = false;
+  bool showPass = true;
 
   // Hàm login
   void login() async {
@@ -255,9 +255,7 @@ class _LoginScreenState extends State<LoginScreen> {
             suffixIcon: isPassword
                 ? IconButton(
               icon: Icon(
-                showPass
-                    ? Icons.visibility_off
-                    : Icons.visibility,
+                showPass? Icons.visibility : Icons.visibility_off,
                 color: Colors.grey,
               ),
               onPressed: () {
