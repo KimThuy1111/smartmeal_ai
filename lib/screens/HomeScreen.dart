@@ -1,7 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:smartmeal_ai/screens/UserProfileScreen.dart';
 
+import '../component/Footer.dart';
 import 'FoodDiaryScreen.dart';
 import 'SearchFoodScreen.dart';
 
@@ -191,7 +193,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
 
                 // FOOTER NAV
-                buildBottomNav(),
+                Footer(currentIndex: 0),
               ],
             ),
           ),
@@ -231,72 +233,5 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Footer
-  Widget buildBottomNav() {
-    return Container(
-      height: 70,
-      color: Colors.white,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          buildNavItem(Icons.home, "Trang chủ", 0),
-          buildNavItem(Icons.book, "Nhật ký", 1),
-          buildNavItem(Icons.search, "Gợi ý", 2),
-          buildNavItem(Icons.person, "Hồ sơ", 3),
-        ],
-      ),
-    );
-  }
 
-  Widget buildNavItem(IconData icon, String text, int index) {
-    bool isSelected = selectedIndex == index;
-
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          selectedIndex = index;
-        });
-
-        switch (index) {
-          case 0:
-            break;
-
-          case 1:
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const FoodDiaryScreen(),
-              ),
-            );
-            break;
-
-          case 2:
-            break;
-
-          case 3:
-            break;
-        }
-      },
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            icon,
-            color: isSelected
-                ? const Color(0xFF00C569)
-                : Colors.grey,
-          ),
-          Text(
-            text,
-            style: TextStyle(
-              fontSize: 12,
-              color: isSelected
-                  ? const Color(0xFF00C569)
-                  : Colors.grey,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
