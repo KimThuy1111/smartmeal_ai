@@ -1,12 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../component/Footer.dart';
 import '../models/FoodDiary.dart';
 import 'FoodDetailScreen.dart';
 import 'SearchFoodScreen.dart';
 
 class FoodDiaryScreen extends StatefulWidget {
-
   const FoodDiaryScreen({super.key});
 
   @override
@@ -21,7 +21,7 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
 
   double totalCalories = 0;
   double fabX = 300;
-  double fabY = 520;
+  double fabY = 480;
 
   String today = DateTime.now().toString().substring(0, 10);
 
@@ -89,100 +89,101 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF3F7F6),
 
-      body: Stack(
-        children: [
+      // ✅ FOOTER GHIM DƯỚI ĐÁY
+      bottomNavigationBar: const Footer(currentIndex: 1),
 
-          // Background + Content
-          Container(
-            color: const Color(0xFFF3F7F6),
-            child: SafeArea(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+      body: SafeArea(
+        child: Stack(
+          children: [
 
-                    const Center(
-                      child: Text(
-                        "Nhật ký ăn uống",
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+            // Nội dung chính
+            SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+
+                  const Center(
+                    child: Text(
+                      "Nhật ký ăn uống",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
+                  ),
 
-                    const SizedBox(height: 20),
+                  const SizedBox(height: 20),
 
-                    Center(
-                      child: Container(
-                        width: 165,
-                        height: 165,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: const Color(0xFFF2FDF7),
-                          border: Border.all(
-                            color: const Color(0xFFC7EEDB),
-                            width: 3,
-                          ),
+                  Center(
+                    child: Container(
+                      width: 165,
+                      height: 165,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: const Color(0xFFF2FDF7),
+                        border: Border.all(
+                          color: const Color(0xFFC7EEDB),
+                          width: 3,
                         ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              totalCalories.toStringAsFixed(0),
-                              style: const TextStyle(
-                                fontSize: 40,
-                                fontWeight: FontWeight.bold,
-                              ),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            totalCalories.toStringAsFixed(0),
+                            style: const TextStyle(
+                              fontSize: 40,
+                              fontWeight: FontWeight.bold,
                             ),
-                            const Text("kcal consumed"),
-                          ],
-                        ),
+                          ),
+                          const Text("kcal consumed"),
+                        ],
                       ),
                     ),
-                    buildMealSection("Bữa sáng", breakfast),
-                    buildMealSection("Bữa trưa", lunch),
-                    buildMealSection("Bữa tối", dinner),
+                  ),
 
-                    const SizedBox(height: 120),
-                  ],
-                ),
+                  buildMealSection("Bữa sáng", breakfast),
+                  buildMealSection("Bữa trưa", lunch),
+                  buildMealSection("Bữa tối", dinner),
+
+                  const SizedBox(height: 120), // chừa chỗ cho FAB
+                ],
               ),
             ),
-          ),
 
-          // 🔹 DRAGGABLE FAB
-          Positioned(
-            left: fabX,
-            top: fabY,
-            child: GestureDetector(
-              onPanUpdate: (details) {
-                setState(() {
-                  fabX += details.delta.dx;
-                  fabY += details.delta.dy;
-                });
-              },
-              child: FloatingActionButton(
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const SearchFoodScreen(),
-                    ),
-                  ).then((_) => loadDiary());
+            // ✅ DRAGGABLE FAB
+            Positioned(
+              left: fabX,
+              top: fabY,
+              child: GestureDetector(
+                onPanUpdate: (details) {
+                  setState(() {
+                    fabX += details.delta.dx;
+                    fabY += details.delta.dy;
+                  });
                 },
-                child: const Icon(
-                  Icons.add_circle,
-                  color: Color(0xFF00C569),
-                  size: 50,
+                child: FloatingActionButton(
+                  backgroundColor: Colors.transparent,
+                  elevation: 0,
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const SearchFoodScreen(),
+                      ),
+                    ).then((_) => loadDiary());
+                  },
+                  child: const Icon(
+                    Icons.add_circle,
+                    color: Color(0xFF00C569),
+                    size: 50,
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -198,7 +199,6 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
             fontSize: 16,
             fontWeight: FontWeight.bold,
           ),
-          textAlign: TextAlign.left,
         ),
         const SizedBox(height: 10),
         ...list.map((e) => buildFoodItem(e)).toList(),
@@ -221,14 +221,14 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
         )
             : const Icon(Icons.fastfood),
         title: Text(item.name),
-        subtitle: Text("${item.calories.toStringAsFixed(0)} cal"),
+        subtitle:
+        Text("${item.calories.toStringAsFixed(0)} cal"),
         onTap: () {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => FoodDetailScreen(
-                foodId: item.foodId,
-              ),
+              builder: (_) =>
+                  FoodDetailScreen(foodId: item.foodId),
             ),
           );
         },
