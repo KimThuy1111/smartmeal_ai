@@ -21,8 +21,11 @@ workflows:
           rm -rf Pods Podfile.lock
           pod install
 
-          # Remove unsupported -G flag
+          # Remove -G flag from Pods
           find Pods -name "*.xcconfig" -type f -exec sed -i '' 's/-G//g' {} \;
+
+          # Remove -G flag from Xcode project
+          sed -i '' 's/-G//g' Runner.xcodeproj/project.pbxproj
 
       - name: Build iOS IPA
         script: flutter build ipa --release --no-codesign
