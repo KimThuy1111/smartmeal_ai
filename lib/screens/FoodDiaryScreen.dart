@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -20,6 +22,8 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
   List<FoodDiary> dinner = [];
 
   double totalCalories = 0;
+  double targetCalories = 0; // 🔥 TDEE từ FastAPI
+
   double fabX = 300;
   double fabY = 480;
 
@@ -32,8 +36,40 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
   }
 
   Future<void> loadDiary() async {
+
     final uid = FirebaseAuth.instance.currentUser!.uid;
 
+    // 🔥 Lấy user data
+    final userDoc = await FirebaseFirestore.instance
+        .collection("users")
+        .doc(uid)
+        .get();
+
+    final userData = userDoc.data();
+    if (userData == null) return;
+
+    // 🔥 Gọi API lấy TDEE
+    final response = await http.post(
+      Uri.parse("https://smartmeal-ai-wp3g.onrender.com/tdee"),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        "age": userData["age"],
+        "gender": userData["gender"],
+        "height": userData["height"],
+        "weight": userData["weight"],
+        "activity": userData["activity"],
+        "disease": userData["diseases"]?.isNotEmpty == true
+            ? userData["diseases"][0]
+            : "None",
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      targetCalories = (data["Calories"] ?? 0).toDouble();
+    }
+
+    // 🔥 Load diary
     final snapshot = await FirebaseFirestore.instance
         .collection("food_diary")
         .where("userId", isEqualTo: uid)
@@ -46,6 +82,7 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
     totalCalories = 0;
 
     for (var doc in snapshot.docs) {
+
       final foodId = doc["foodId"];
       final meal = doc["meal"];
 
@@ -86,17 +123,18 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
 
   @override
   Widget build(BuildContext context) {
+
+    bool isOver = totalCalories > targetCalories && targetCalories > 0;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF3F7F6),
 
-      // ✅ FOOTER GHIM DƯỚI ĐÁY
       bottomNavigationBar: const Footer(currentIndex: 1),
 
       body: SafeArea(
         child: Stack(
           children: [
 
-            // Nội dung chính
             SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -123,7 +161,9 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
                         shape: BoxShape.circle,
                         color: const Color(0xFFF2FDF7),
                         border: Border.all(
-                          color: const Color(0xFFC7EEDB),
+                          color: isOver
+                              ? Colors.red
+                              : const Color(0xFFC7EEDB),
                           width: 3,
                         ),
                       ),
@@ -138,6 +178,13 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
                             ),
                           ),
                           const Text("kcal consumed"),
+                          const SizedBox(height: 6),
+                          Text(
+                            "Target: ${targetCalories.toStringAsFixed(0)}",
+                            style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey),
+                          )
                         ],
                       ),
                     ),
@@ -147,12 +194,11 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
                   buildMealSection("Bữa trưa", lunch),
                   buildMealSection("Bữa tối", dinner),
 
-                  const SizedBox(height: 120), // chừa chỗ cho FAB
+                  const SizedBox(height: 120),
                 ],
               ),
             ),
 
-            // ✅ DRAGGABLE FAB
             Positioned(
               left: fabX,
               top: fabY,

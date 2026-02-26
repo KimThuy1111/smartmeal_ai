@@ -25,7 +25,7 @@ class Footer extends StatelessWidget {
         screen = const FoodDiaryScreen();
         break;
       case 2:
-        screen = const SuggestMealScreen(); // tạm để home nếu chưa có screen gợi ý
+        screen = const SuggestMealScreen();
         break;
       case 3:
         screen = const UserProfileScreen();

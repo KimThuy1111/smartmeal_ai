@@ -10,3 +10,7 @@ Chọn:
 Android
 
 iOS (nếu có Mac)
+
+flutter clean
+flutter pub get
+flutter build apk --release

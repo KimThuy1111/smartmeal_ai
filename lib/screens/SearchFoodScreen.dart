@@ -37,7 +37,6 @@ class _SearchFoodScreenState extends State<SearchFoodScreen> {
     super.dispose();
   }
 
-  // ================= LOAD TOP =================
   Future<void> loadTopFoods() async {
     setState(() => isLoading = true);
 
@@ -49,7 +48,6 @@ class _SearchFoodScreenState extends State<SearchFoodScreen> {
     });
   }
 
-  // ================= SEARCH =================
   void searchFood(String keyword) {
 
     if (_debounce?.isActive ?? false) _debounce!.cancel();
@@ -74,7 +72,6 @@ class _SearchFoodScreenState extends State<SearchFoodScreen> {
     });
   }
 
-  // ================= ADD FOOD TO DIARY =================
   Future<void> addFoodToDiary(Food food, String meal) async {
 
     final user = FirebaseAuth.instance.currentUser;
@@ -95,7 +92,6 @@ class _SearchFoodScreenState extends State<SearchFoodScreen> {
     Notifier.showNotify(context, "Thêm vào nhật ký thành công");
   }
 
-  // ================= PICK MEAL =================
   void showMealPickerDialog(Food food) {
     showDialog(
       context: context,
@@ -123,7 +119,6 @@ class _SearchFoodScreenState extends State<SearchFoodScreen> {
     );
   }
 
-  // ================= UI =================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -142,7 +137,6 @@ class _SearchFoodScreenState extends State<SearchFoodScreen> {
       body: Column(
         children: [
 
-          // SEARCH BOX
           Padding(
             padding: const EdgeInsets.all(16),
             child: TextField(
@@ -177,7 +171,6 @@ class _SearchFoodScreenState extends State<SearchFoodScreen> {
 
           const SizedBox(height: 10),
 
-          // LIST
           Expanded(
             child: isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -201,7 +194,6 @@ class _SearchFoodScreenState extends State<SearchFoodScreen> {
     );
   }
 
-  // ================= FOOD ITEM =================
   Widget buildFoodItem(Food food) {
     return Card(
       elevation: 3,
@@ -215,7 +207,7 @@ class _SearchFoodScreenState extends State<SearchFoodScreen> {
             context,
             MaterialPageRoute(
               builder: (_) => FoodDetailScreen(
-                foodId: food.id,   // 👈 CHỈ TRUYỀN foodId
+                foodId: food.id,
               ),
             ),
           );

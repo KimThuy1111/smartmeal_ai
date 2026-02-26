@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:smartmeal_ai/screens/FoodDiaryScreen.dart';
 import '../component/Footer.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -18,17 +19,59 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
   Map<String, dynamic>? menu;
   Map<String, dynamic>? nutrition;
   bool isLoading = false;
-
+  double breakfastCalories = 0;
+  double lunchCalories = 0;
+  double dinnerCalories = 0;
+  String today = DateTime.now().toString().substring(0, 10);
   @override
   void initState() {
     super.initState();
     fetchMenu();
   }
+  Future<void> loadTodayCalories() async {
 
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final snapshot = await FirebaseFirestore.instance
+        .collection("food_diary")
+        .where("userId", isEqualTo: user.uid)
+        .where("date", isEqualTo: today)
+        .get();
+
+    breakfastCalories = 0;
+    lunchCalories = 0;
+    dinnerCalories = 0;
+
+    for (var doc in snapshot.docs) {
+
+      final foodId = doc["foodId"];
+      final meal = doc["meal"];
+
+      final foodDoc = await FirebaseFirestore.instance
+          .collection("food")
+          .doc(foodId)
+          .get();
+
+      final data = foodDoc.data();
+      if (data == null) continue;
+
+      final cal = (data["calories"] ?? 0).toDouble();
+
+      if (meal == "breakfast") {
+        breakfastCalories += cal;
+      } else if (meal == "lunch") {
+        lunchCalories += cal;
+      } else if (meal == "dinner") {
+        dinnerCalories += cal;
+      }
+    }
+  }
   Future<void> fetchMenu() async {
     setState(() => isLoading = true);
 
     try {
+      await loadTodayCalories();
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
 
@@ -41,7 +84,7 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
       if (userData == null) return;
 
       final response = await http.post(
-        Uri.parse("http://10.0.2.2:8000/recommend"),
+        Uri.parse("https://smartmeal-ai-wp3g.onrender.com/recommend"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "age": userData["age"],
@@ -51,7 +94,11 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
           "activity": userData["activity"],
           "disease": userData["diseases"]?.isNotEmpty == true
               ? userData["diseases"][0]
-              : "None"
+              : "None",
+
+          "breakfast_cal": breakfastCalories,
+          "lunch_cal": lunchCalories,
+          "dinner_cal": dinnerCalories,
         }),
       );
 
@@ -84,7 +131,6 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
             final doc = snapshot.docs.first;
             final foodData = doc.data();
 
-            // 🔥 QUAN TRỌNG: thêm id Firestore
             foodData["id"] = doc.id;
 
             foods.add(foodData);
@@ -116,7 +162,6 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
         child: Column(
           children: [
 
-            // HEADER
             Container(
               height: 60,
               padding: const EdgeInsets.symmetric(horizontal: 16),

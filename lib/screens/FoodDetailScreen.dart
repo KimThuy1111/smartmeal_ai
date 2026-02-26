@@ -15,7 +15,6 @@ class FoodDetailScreen extends StatefulWidget {
 }
 
 class _FoodDetailScreenState extends State<FoodDetailScreen> {
-
   Food? food;
   bool isLoading = true;
 
@@ -24,7 +23,6 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
     super.initState();
     loadFood();
   }
-
   Future<void> loadFood() async {
     final doc = await FirebaseFirestore.instance
         .collection("food")
@@ -43,10 +41,9 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
       isLoading = false;
     });
   }
-
+  //Hàm lấy thông tin dinh dưỡng
   List<Widget> buildNutritionList() {
     if (food == null) return [];
-
     final nutrients = <Map<String, dynamic>>[
       {"title": "Canxi", "value": food!.calcium, "unit": "mg"},
       {"title": "Sắt", "value": food!.iron, "unit": "mg"},
@@ -66,7 +63,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
     ))
         .toList();
   }
-
+  //UI
   @override
   Widget build(BuildContext context) {
 
@@ -116,7 +113,6 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
                 ),
               ),
 
-              // IMAGE
               Container(
                 margin: const EdgeInsets.all(16),
                 height: 220,
@@ -137,7 +133,6 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
                 ),
               ),
 
-              // NAME
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Column(
@@ -167,7 +162,6 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
 
               const SizedBox(height: 20),
 
-              // CALO CIRCLE
               Container(
                 width: 150,
                 height: 150,
@@ -200,7 +194,6 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
 
               const SizedBox(height: 20),
 
-              // MACRO BOX
               Padding(
                 padding: const EdgeInsets.all(12),
                 child: Row(
