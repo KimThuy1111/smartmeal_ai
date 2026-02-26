@@ -2,26 +2,21 @@ workflows:
   ios-release:
     name: iOS Release Build
     max_build_duration: 60
+
     environment:
-      flutter: stable
+      flutter: 3.24.0
       xcode: latest
-      cocoapods: default
 
     scripts:
-      - name: Clean project
-        script: flutter clean
+      - flutter clean
+      - flutter pub get
 
-      - name: Get packages
-        script: flutter pub get
+      - cd ios
+      - rm -rf Pods Podfile.lock
+      - pod install
+      - cd ..
 
-      - name: Install pods
-        script: |
-          cd ios
-          pod install
-          cd ..
-
-      - name: Build iOS IPA
-        script: flutter build ipa --release --no-codesign
+      - flutter build ipa --release --no-codesign
 
     artifacts:
       - build/ios/ipa/*.ipa
