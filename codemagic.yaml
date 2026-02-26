@@ -6,17 +6,23 @@ workflows:
     environment:
       flutter: 3.41.2
       xcode: latest
+      cocoapods: default
 
     scripts:
-      - flutter clean
-      - flutter pub get
+      - name: Clean project
+        script: flutter clean
 
-      - cd ios
-      - rm -rf Pods Podfile.lock
-      - pod install
-      - cd ..
+      - name: Get dependencies
+        script: flutter pub get
 
-      - flutter build ipa --release --no-codesign
+      - name: Install CocoaPods
+        script: |
+          cd ios
+          rm -rf Pods Podfile.lock
+          pod install
+
+      - name: Build iOS IPA
+        script: flutter build ipa --release --no-codesign
 
     artifacts:
       - build/ios/ipa/*.ipa
