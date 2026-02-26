@@ -9,7 +9,7 @@ class FoodRepository {
     final snapshot = await _db.collection('food').get();
 
     List<Food> list = snapshot.docs
-        .map((doc) => Food.fromMap(doc.data(), doc.id)) // ✅ sửa ở đây
+        .map((doc) => Food.fromMap(doc.data(), doc.id))
         .toList();
 
     list.shuffle();
@@ -21,12 +21,12 @@ class FoodRepository {
     return list;
   }
 
-  // Search local filter
+  // Hàm tìm kiếm
   Future<List<Food>> searchFood(String keyword) async {
     final snapshot = await _db.collection('food').get();
 
     return snapshot.docs
-        .map((doc) => Food.fromMap(doc.data(), doc.id)) // ✅ sửa ở đây
+        .map((doc) => Food.fromMap(doc.data(), doc.id))
         .where((f) =>
         f.name.toLowerCase().contains(keyword.toLowerCase()))
         .toList();

@@ -68,7 +68,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
                     const SizedBox(height: 24),
 
-                    // PROFILE CARD
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -122,7 +121,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
                     const SizedBox(height: 32),
 
-                    // SETTINGS TITLE
                     const Align(
                       alignment: Alignment.centerLeft,
                       child: Text(

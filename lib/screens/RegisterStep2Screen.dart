@@ -175,7 +175,7 @@ class _RegisterStep2ScreenState extends State<RegisterStep2Screen> {
               ),
               const SizedBox(height: 8),
 
-              buildDropdown(activity, ["Ít vận động", "Vận động nhẹ", "Vận động mạnh"], (a) => setState(() => activity = a)),
+              buildDropdown(activity, ["Ít vận động", "Vận động nhẹ", "Vận động vừa phải", "Vận động nhiều", "Vận động rất nhiều"], (a) => setState(() => activity = a)),
               const SizedBox(height: 24),
 
               const Align(

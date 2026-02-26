@@ -1,11 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:smartmeal_ai/screens/UserProfileScreen.dart';
 
 import '../component/Footer.dart';
-import 'FoodDiaryScreen.dart';
 import 'SearchFoodScreen.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -39,6 +39,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Lấy thông tin user từ firestore
   void loadUserData() async {
+
     if (_auth.currentUser == null) return;
 
     String uid = _auth.currentUser!.uid;
@@ -51,49 +52,34 @@ class _HomeScreenState extends State<HomeScreen> {
     Map<String, dynamic> data =
     doc.data() as Map<String, dynamic>;
 
+    final response = await http.post(
+      Uri.parse("https://smartmeal-ai-wp3g.onrender.com/recommend"),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        "age": data["age"],
+        "gender": data["gender"],
+        "height": data["height"],
+        "weight": data["weight"],
+        "activity": data["activity"],
+        "disease": data["diseases"]?.isNotEmpty == true
+            ? data["diseases"][0]
+            : "None",
+        "breakfast_cal": 0,
+        "lunch_cal": 0,
+        "dinner_cal": 0,
+      }),
+    );
+
+    if (response.statusCode != 200) return;
+
+    final result = jsonDecode(response.body);
+    final nutrition = result["nutrition"];
+
     setState(() {
       name = data["name"] ?? "";
       goal = data["goal"] ?? "";
-      calories = calculateTDEE(data);
-
-      breakfast = data["breakfast"] ?? "";
-      lunch = data["lunch"] ?? "";
-      dinner = data["dinner"] ?? "";
+      calories = nutrition["Calories"].round();
     });
-  }
-
-  // Tính TDEE
-  int calculateTDEE(Map<String, dynamic> user) {
-    double weight = user["weight"];
-    double height = user["height"];
-    int age = user["age"];
-    String gender = user["gender"];
-    String activity = user["activity"];
-
-    double bmr;
-
-    if (gender.toLowerCase() == "nam") {
-      bmr = 10 * weight + 6.25 * height - 5 * age + 5;
-    } else {
-      bmr = 10 * weight + 6.25 * height - 5 * age - 161;
-    }
-
-    double factor = getActivityFactor(activity);
-
-    return (bmr * factor).round();
-  }
-
-  double getActivityFactor(String activity) {
-    switch (activity.toLowerCase()) {
-      case "ít vận động":
-        return 1.2;
-      case "vận động nhẹ":
-        return 1.55;
-      case "vận động mạnh":
-        return 1.725;
-      default:
-        return 1.2;
-    }
   }
 
   // UI
@@ -103,7 +89,6 @@ class _HomeScreenState extends State<HomeScreen> {
       body: Stack(
         children: [
 
-          // 🔹 BODY CŨ CỦA BẠN
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -130,7 +115,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
                         const SizedBox(height: 20),
 
-                        // Calories Circle
                         Container(
                           width: 250,
                           height: 250,
@@ -198,7 +182,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
 
-          // 🔹 FAB DRAGGABLE
           Positioned(
             left: fabX,
             top: fabY,
