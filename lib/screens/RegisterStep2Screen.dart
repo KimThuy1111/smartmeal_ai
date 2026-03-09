@@ -9,12 +9,14 @@ class RegisterStep2Screen extends StatefulWidget {
   final String uid;
   final String email;
   final String name;
+  final String avatar;
   
   const RegisterStep2Screen({
     super.key,
     required this.uid,
     required this.email,
     required this.name,
+    required this.avatar,
   });
   
   @override
@@ -53,6 +55,9 @@ class _RegisterStep2ScreenState extends State<RegisterStep2Screen> {
         activity: activity,
         goal: goal,
         diseases: selectedDiseases,
+        avatar: widget.avatar.isEmpty
+            ? "https://cdn-icons-png.flaticon.com/512/149/149071.png"
+            : widget.avatar,
       );
 
       await _db.collection("users").doc(widget.uid).set(user.toMap());

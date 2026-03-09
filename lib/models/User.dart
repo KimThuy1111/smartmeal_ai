@@ -9,6 +9,7 @@ class User {
   final String activity;
   final String goal;
   final List<String> diseases;
+  final String avatar;
 
   User({
     required this.uid,
@@ -21,6 +22,7 @@ class User {
     required this.activity,
     required this.goal,
     required this.diseases,
+    required this.avatar,
   });
 
   Map<String, dynamic> toMap() {
@@ -35,6 +37,7 @@ class User {
       "activity": activity,
       "goal": goal,
       "diseases": diseases,
+      "avatar": avatar,
     };
   }
 }

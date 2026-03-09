@@ -49,7 +49,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       // Chuyển sang step 2
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => RegisterStep2Screen(uid: uid, email: email, name: name),
+        MaterialPageRoute(builder: (_) => RegisterStep2Screen(uid: uid, email: email, name: name,
+          avatar: "https://cdn-icons-png.flaticon.com/512/149/149071.png",),
         ),
       );
     } catch (e) {

@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:smartmeal_ai/screens/FoodDiaryScreen.dart';
+import '../component/BackgroundGradient.dart';
 import '../component/Footer.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -28,8 +28,9 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
     super.initState();
     fetchMenu();
   }
-  Future<void> loadTodayCalories() async {
 
+  // Load lượng calo đã ăn
+  Future<void> loadTodayCalories() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
@@ -67,6 +68,7 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
       }
     }
   }
+  // Gọi menu gợi ý món ăn từ API
   Future<void> fetchMenu() async {
     setState(() => isLoading = true);
 
@@ -106,77 +108,58 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
         print("API ERROR: ${response.body}");
         return;
       }
-
       final data = jsonDecode(response.body);
       nutrition = data["nutrition"];
-
       final aiMenu = data["menu"];
-
       Map<String, List<Map<String, dynamic>>> fullMenu = {};
 
       for (String meal in ["Breakfast", "Lunch", "Dinner"]) {
-
         List items = aiMenu[meal] ?? [];
         List<Map<String, dynamic>> foods = [];
-
         for (var item in items) {
-
           final snapshot = await FirebaseFirestore.instance
               .collection("food")
               .where("stt", isEqualTo: item["stt"])
               .limit(1)
               .get();
-
           if (snapshot.docs.isNotEmpty) {
             final doc = snapshot.docs.first;
             final foodData = doc.data();
 
             foodData["id"] = doc.id;
-
             foods.add(foodData);
           }
         }
-
         fullMenu[meal] = foods;
       }
-
       setState(() {
         menu = fullMenu;
       });
-
     } catch (e) {
       print("ERROR: $e");
     }
-
     setState(() => isLoading = false);
   }
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F7F6),
       bottomNavigationBar: const Footer(currentIndex: 2),
-
-      body: SafeArea(
+      body: BackgroundGradient(
+      child: SafeArea(
         child: Column(
           children: [
-
             Container(
               height: 60,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
                 children: [
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: const Icon(Icons.arrow_back),
-                  ),
                   const Expanded(
                     child: Center(
                       child: Text(
                         "Gợi ý thực đơn",
                         style: TextStyle(
-                            fontSize: 20,
+                            fontSize: 22,
                             fontWeight: FontWeight.bold),
                       ),
                     ),
@@ -188,7 +171,6 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
                 ],
               ),
             ),
-
             Expanded(
               child: isLoading
                   ? const Center(child: CircularProgressIndicator())
@@ -198,15 +180,12 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
-
                     Text(
                       "Dựa trên mục tiêu ${nutrition?["Calories"] ?? 0} Calo/ngày",
                       style: const TextStyle(color: Colors.grey),
                       textAlign: TextAlign.center,
                     ),
-
                     const SizedBox(height: 20),
-
                     buildMealSection("Bữa Sáng", menu!["Breakfast"]),
                     buildMealSection("Bữa Trưa", menu!["Lunch"]),
                     buildMealSection("Bữa Tối", menu!["Dinner"]),
@@ -217,42 +196,33 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
           ],
         ),
       ),
+      ),
     );
   }
 
+  // Hiển thị từng bữa ăn
   Widget buildMealSection(String title, List<dynamic> foods) {
-
     if (foods == null || foods.isEmpty) return const SizedBox();
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-
         const SizedBox(height: 20),
-
         Text(
           title,
           style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold),
         ),
-
         const SizedBox(height: 10),
-
         ...foods.map((food) {
-
           final String name =
           (food["name_vi"] ?? food["name"] ?? "Không tên").toString();
-
           final String image =
           (food["image"] ?? "").toString();
-
           final String calories =
           (food["calories"] ?? 0).toString();
-
           final String? foodId =
           food["id"]?.toString();
-
           return Card(
             elevation: 3,
             margin: const EdgeInsets.only(bottom: 12),
@@ -308,7 +278,7 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
       ],
     );
   }
-
+  // Thêm vào nhật kí
   Future<void> addFoodToDiary(
       Map<String, dynamic> food,
       String meal,
