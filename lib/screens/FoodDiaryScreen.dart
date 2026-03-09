@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../component/BackgroundGradient.dart';
 import '../component/Footer.dart';
 import '../models/FoodDiary.dart';
 import 'FoodDetailScreen.dart';
@@ -22,12 +23,12 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
   List<FoodDiary> dinner = [];
 
   double totalCalories = 0;
-  double targetCalories = 0; // 🔥 TDEE từ FastAPI
+  double targetCalories = 0;
 
   double fabX = 300;
   double fabY = 480;
 
-  String today = DateTime.now().toString().substring(0, 10);
+  DateTime selectedDate = DateTime.now();
 
   @override
   void initState() {
@@ -35,11 +36,36 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
     loadDiary();
   }
 
+  String getDateString(DateTime date) {
+    return date.toString().substring(0, 10);
+  }
+
+  String formatDate(DateTime date) {
+    return "${date.day}/${date.month}/${date.year}";
+  }
+
+  Future<void> pickDate() async {
+
+    DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+
+    if (picked != null) {
+      setState(() {
+        selectedDate = picked;
+      });
+
+      loadDiary();
+    }
+  }
+
+  // Hàm load nhật kí ăn uống
   Future<void> loadDiary() async {
-
     final uid = FirebaseAuth.instance.currentUser!.uid;
-
-    // 🔥 Lấy user data
+    // Lấy thông tin user từ Firestore
     final userDoc = await FirebaseFirestore.instance
         .collection("users")
         .doc(uid)
@@ -48,7 +74,7 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
     final userData = userDoc.data();
     if (userData == null) return;
 
-    // 🔥 Gọi API lấy TDEE
+    // Gọi API lấy TDEE
     final response = await http.post(
       Uri.parse("https://smartmeal-ai-wp3g.onrender.com/tdee"),
       headers: {"Content-Type": "application/json"},
@@ -69,11 +95,11 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
       targetCalories = (data["Calories"] ?? 0).toDouble();
     }
 
-    // 🔥 Load diary
+    // Load dữ liệu món đã ăn từ Firestore
     final snapshot = await FirebaseFirestore.instance
         .collection("food_diary")
         .where("userId", isEqualTo: uid)
-        .where("date", isEqualTo: today)
+        .where("date", isEqualTo: getDateString(selectedDate))
         .get();
 
     breakfast.clear();
@@ -82,10 +108,8 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
     totalCalories = 0;
 
     for (var doc in snapshot.docs) {
-
       final foodId = doc["foodId"];
       final meal = doc["meal"];
-
       final foodDoc = await FirebaseFirestore.instance
           .collection("food")
           .doc(foodId)
@@ -97,7 +121,7 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
       final item = FoodDiary(
         foodId: foodId,
         meal: meal,
-        date: today,
+        date: getDateString(selectedDate),
         name: data["name"],
         image: data["image"],
         calories: (data["calories"] ?? 0).toDouble(),
@@ -117,123 +141,141 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
           break;
       }
     }
-
     setState(() {});
   }
 
+  // UI
   @override
   Widget build(BuildContext context) {
-
     bool isOver = totalCalories > targetCalories && targetCalories > 0;
-
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F7F6),
-
       bottomNavigationBar: const Footer(currentIndex: 1),
+      body: BackgroundGradient(
+        child: SafeArea(
+          child: Stack(
+            children: [
+              SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
 
-      body: SafeArea(
-        child: Stack(
-          children: [
-
-            SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-
-                  const Center(
-                    child: Text(
-                      "Nhật ký ăn uống",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  Center(
-                    child: Container(
-                      width: 165,
-                      height: 165,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: const Color(0xFFF2FDF7),
-                        border: Border.all(
-                          color: isOver
-                              ? Colors.red
-                              : const Color(0xFFC7EEDB),
-                          width: 3,
-                        ),
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            totalCalories.toStringAsFixed(0),
-                            style: const TextStyle(
-                              fontSize: 40,
-                              fontWeight: FontWeight.bold,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Expanded(
+                          child: Center(
+                            child: Text(
+                              "Nhật ký ăn uống",
+                              style: TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold),
                             ),
                           ),
-                          const Text("kcal consumed"),
-                          const SizedBox(height: 6),
-                          Text(
-                            "Target: ${targetCalories.toStringAsFixed(0)}",
-                            style: const TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey),
-                          )
-                        ],
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.calendar_month),
+                          onPressed: pickDate,
+                        ),
+                      ],
+                    ),
+
+                    Center(
+                      child: Text(
+                        formatDate(selectedDate),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey,
+                        ),
                       ),
                     ),
-                  ),
 
-                  buildMealSection("Bữa sáng", breakfast),
-                  buildMealSection("Bữa trưa", lunch),
-                  buildMealSection("Bữa tối", dinner),
+                    const SizedBox(height: 20),
 
-                  const SizedBox(height: 120),
-                ],
-              ),
-            ),
-
-            Positioned(
-              left: fabX,
-              top: fabY,
-              child: GestureDetector(
-                onPanUpdate: (details) {
-                  setState(() {
-                    fabX += details.delta.dx;
-                    fabY += details.delta.dy;
-                  });
-                },
-                child: FloatingActionButton(
-                  backgroundColor: Colors.transparent,
-                  elevation: 0,
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const SearchFoodScreen(),
+                    // Tổng calo
+                    Center(
+                      child: Container(
+                        width: 165,
+                        height: 165,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: const Color(0xFFF2FDF7),
+                          border: Border.all(
+                            color: isOver
+                                ? Colors.red
+                                : const Color(0xFFC7EEDB),
+                            width: 3,
+                          ),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              totalCalories.toStringAsFixed(0),
+                              style: const TextStyle(
+                                fontSize: 40,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const Text("kcal consumed"),
+                            const SizedBox(height: 6),
+                            Text(
+                              "Target: ${targetCalories.toStringAsFixed(0)}",
+                              style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey),
+                            )
+                          ],
+                        ),
                       ),
-                    ).then((_) => loadDiary());
+                    ),
+
+                    buildMealSection("Bữa sáng", breakfast),
+                    buildMealSection("Bữa trưa", lunch),
+                    buildMealSection("Bữa tối", dinner),
+
+                    const SizedBox(height: 120),
+                  ],
+                ),
+              ),
+
+              Positioned(
+                left: fabX,
+                top: fabY,
+                child: GestureDetector(
+                  onPanUpdate: (details) {
+                    setState(() {
+                      fabX += details.delta.dx;
+                      fabY += details.delta.dy;
+                    });
                   },
-                  child: const Icon(
-                    Icons.add_circle,
-                    color: Color(0xFF00C569),
-                    size: 50,
+                  child: FloatingActionButton(
+                    backgroundColor: Colors.transparent,
+                    elevation: 0,
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const SearchFoodScreen(),
+                        ),
+                      ).then((_) => loadDiary());
+                    },
+                    child: const Icon(
+                      Icons.add_circle,
+                      color: Color(0xFF00C569),
+                      size: 50,
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
+  // Hiển thị từng bữa ăn
   Widget buildMealSection(String title, List<FoodDiary> list) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -252,6 +294,7 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
     );
   }
 
+  // Hiển thị 1 món
   Widget buildFoodItem(FoodDiary item) {
     return Card(
       margin: const EdgeInsets.only(bottom: 10),

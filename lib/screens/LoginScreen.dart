@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:smartmeal_ai/screens/RegisterScreen.dart';
 import 'package:smartmeal_ai/screens/RegisterStep2Screen.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 import '../utils/notifier.dart';
 import 'HomeScreen.dart';
@@ -18,6 +19,8 @@ class _LoginScreenState extends State<LoginScreen> {
   final passwordController = TextEditingController();
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
 
   bool isLoading = false;
   bool showPass = true;
@@ -68,6 +71,7 @@ class _LoginScreenState extends State<LoginScreen> {
               uid: uid,
               email: email,
               name: userCredential.user!.displayName ?? "",
+              avatar: "https://cdn-icons-png.flaticon.com/512/149/149071.png",
             ),
           ),
         );
@@ -90,6 +94,81 @@ class _LoginScreenState extends State<LoginScreen> {
   }
   finally {
       setState(() => isLoading = false);
+    }
+  }
+  // Đăng nhập gg
+  Future<void> signInWithGoogle() async {
+
+    try {
+
+      setState(() => isLoading = true);
+
+      // 1. Chọn tài khoản Google
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+
+      if (googleUser == null) {
+        setState(() => isLoading = false);
+        return;
+      }
+
+      // 2. Lấy token Google
+      final GoogleSignInAuthentication googleAuth =
+      await googleUser.authentication;
+
+      // 3. Tạo credential Firebase
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      // 4. Đăng nhập Firebase
+      UserCredential userCredential =
+      await _auth.signInWithCredential(credential);
+
+      User user = userCredential.user!;
+      String uid = user.uid;
+
+      // 5. Kiểm tra Firestore đã có profile chưa
+      DocumentSnapshot doc =
+      await _db.collection("users").doc(uid).get();
+
+      if (doc.exists) {
+
+        // Đã nhập thông tin Step2 → vào Home
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+              (route) => false,
+        );
+
+        Notifier.showNotify(context, "Đăng nhập thành công!");
+
+      } else {
+
+        // Chưa có thông tin Step2
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => RegisterStep2Screen(
+              uid: uid,
+              email: user.email ?? "",
+              name: user.displayName ?? "",
+              avatar: user.photoURL ??
+                  "https://cdn-icons-png.flaticon.com/512/149/149071.png",
+            ),
+          ),
+        );
+      }
+
+    } catch (e) {
+
+      Notifier.showError(context, "Đăng nhập Google thất bại");
+      print(e);
+
+    } finally {
+
+      setState(() => isLoading = false);
+
     }
   }
 
@@ -219,7 +298,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    buildSocialIcon("assets/images/ic_google.png"),
+                    GestureDetector(
+                      onTap: signInWithGoogle,
+                      child: buildSocialIcon("assets/images/ic_google.png"),
+                    ),
                   ],
                 ),
               ]
@@ -255,7 +337,7 @@ class _LoginScreenState extends State<LoginScreen> {
             suffixIcon: isPassword
                 ? IconButton(
               icon: Icon(
-                showPass? Icons.visibility : Icons.visibility_off,
+                showPass? Icons.visibility_off : Icons.visibility,
                 color: Colors.grey,
               ),
               onPressed: () {

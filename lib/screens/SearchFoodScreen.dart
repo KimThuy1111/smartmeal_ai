@@ -36,7 +36,7 @@ class _SearchFoodScreenState extends State<SearchFoodScreen> {
     _debounce?.cancel();
     super.dispose();
   }
-
+  // Hàm load các món ăn phổ biến
   Future<void> loadTopFoods() async {
     setState(() => isLoading = true);
 
@@ -47,7 +47,7 @@ class _SearchFoodScreenState extends State<SearchFoodScreen> {
       isLoading = false;
     });
   }
-
+  // Hàm tìm kiếm món ăn
   void searchFood(String keyword) {
 
     if (_debounce?.isActive ?? false) _debounce!.cancel();
@@ -72,6 +72,7 @@ class _SearchFoodScreenState extends State<SearchFoodScreen> {
     });
   }
 
+  // Hàm thêm món ăn vào nhật kí
   Future<void> addFoodToDiary(Food food, String meal) async {
 
     final user = FirebaseAuth.instance.currentUser;
@@ -92,6 +93,7 @@ class _SearchFoodScreenState extends State<SearchFoodScreen> {
     Notifier.showNotify(context, "Thêm vào nhật ký thành công");
   }
 
+  // Dialog chọn bữa ăn
   void showMealPickerDialog(Food food) {
     showDialog(
       context: context,
@@ -109,6 +111,7 @@ class _SearchFoodScreenState extends State<SearchFoodScreen> {
     );
   }
 
+  // Nút chọn bữa ăn
   Widget mealButton(String title, String value, Food food) {
     return ListTile(
       title: Text(title),
@@ -119,23 +122,34 @@ class _SearchFoodScreenState extends State<SearchFoodScreen> {
     );
   }
 
+  // UI
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFE4FFE4),
-
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: const Text(
-          "Tra cứu món ăn",
-          style: TextStyle(color: Colors.black),
-        ),
-        iconTheme: const IconThemeData(color: Colors.black),
-      ),
-
       body: Column(
         children: [
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: const Icon(Icons.chevron_left, size: 24),
+              ),
+              const Expanded(
+                child: Center(
+                  child: Text(
+                    "Tra cứu món ăn",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 22,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 24),
+            ],
+          ),
 
           Padding(
             padding: const EdgeInsets.all(16),
@@ -193,7 +207,7 @@ class _SearchFoodScreenState extends State<SearchFoodScreen> {
       ),
     );
   }
-
+  // Hiển thị 1 món ăn
   Widget buildFoodItem(Food food) {
     return Card(
       elevation: 3,

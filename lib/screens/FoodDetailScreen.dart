@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import '../component/BackgroundGradient.dart';
 import '../models/Food.dart';
 
 class FoodDetailScreen extends StatefulWidget {
@@ -23,6 +24,8 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
     super.initState();
     loadFood();
   }
+
+  // Hàm lấy dữ liệu món ăn từ Firebase Firestore
   Future<void> loadFood() async {
     final doc = await FirebaseFirestore.instance
         .collection("food")
@@ -41,7 +44,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
       isLoading = false;
     });
   }
-  //Hàm lấy thông tin dinh dưỡng
+  // Hàm danh sách thông tin dinh dưỡng
   List<Widget> buildNutritionList() {
     if (food == null) return [];
     final nutrients = <Map<String, dynamic>>[
@@ -66,7 +69,6 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
   //UI
   @override
   Widget build(BuildContext context) {
-
     if (isLoading) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
@@ -80,14 +82,13 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F7F6),
-
-      body: SafeArea(
+      body: BackgroundGradient(
+      child: SafeArea(
         child: SingleChildScrollView(
           child: Column(
             children: [
 
-              // HEADER
+              // Header
               Container(
                 height: 56,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -95,7 +96,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
                   children: [
                     GestureDetector(
                       onTap: () => Navigator.pop(context),
-                      child: const Icon(Icons.arrow_back, size: 24),
+                      child: const Icon(Icons.chevron_left, size: 24),
                     ),
                     const Expanded(
                       child: Center(
@@ -103,7 +104,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
                           "Chi tiết món ăn",
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            fontSize: 18,
+                            fontSize: 22,
                           ),
                         ),
                       ),
@@ -112,7 +113,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
                   ],
                 ),
               ),
-
+              // Hình ảnh
               Container(
                 margin: const EdgeInsets.all(16),
                 height: 220,
@@ -132,7 +133,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
                       : const Icon(Icons.fastfood, size: 60),
                 ),
               ),
-
+              //Tên món ăn
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Column(
@@ -161,7 +162,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
               ),
 
               const SizedBox(height: 20),
-
+              // Hiển thị calories
               Container(
                 width: 150,
                 height: 150,
@@ -239,9 +240,10 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
           ),
         ),
       ),
+      ),
     );
   }
-
+  // Hiển thị giá trị dinh dưỡng
   Widget macroBox(String title, String value) {
     return Expanded(
       child: Container(

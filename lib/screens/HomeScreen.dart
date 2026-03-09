@@ -115,6 +115,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                         const SizedBox(height: 20),
 
+                        // Calo
                         Container(
                           width: 250,
                           height: 250,
@@ -215,6 +216,5 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-
 
 }
