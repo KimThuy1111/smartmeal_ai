@@ -7,6 +7,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 import '../utils/notifier.dart';
 import 'HomeScreen.dart';
+import 'dart:async';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -24,6 +25,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool isLoading = false;
   bool showPass = true;
+  String generatedOTP = "";
 
   // Hàm login
   void login() async {
@@ -171,6 +173,143 @@ class _LoginScreenState extends State<LoginScreen> {
 
     }
   }
+  //Quên mật khẩu
+  void showEmailDialog() {
+
+    TextEditingController emailController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (_) {
+
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(25),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+
+                const Text(
+                  "Quên mật khẩu",
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+
+                const SizedBox(height: 10),
+
+                const Text(
+                  "Nhập email để nhận link đặt lại mật khẩu",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.grey,
+                    fontSize: 14,
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                /// input email giống login
+                Container(
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(25),
+                    border: Border.all(color: const Color(0xFFE0F2F1)),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+
+                  child: TextField(
+                    controller: emailController,
+                    decoration: const InputDecoration(
+                      hintText: "Nhập email",
+                      border: InputBorder.none,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 25),
+
+                /// button gửi link
+                GestureDetector(
+                  onTap: () async {
+
+                    String email = emailController.text.trim();
+
+                    if(email.isEmpty){
+                      Notifier.showError(context, "Vui lòng nhập email");
+                      return;
+                    }
+
+                    try {
+
+                      await FirebaseAuth.instance
+                          .sendPasswordResetEmail(email: email);
+
+                      Navigator.pop(context);
+
+                      Notifier.showNotify(
+                          context,
+                          "Link đổi mật khẩu đã gửi vào email của bạn"
+                      );
+
+                    } catch(e) {
+
+                      Notifier.showError(context, "Email không tồn tại");
+
+                    }
+
+                  },
+
+                  child: Container(
+                    height: 50,
+                    width: double.infinity,
+
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [
+                          Color(0xFF79EEF2),
+                          Color(0xFF78F09C)
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(25),
+                    ),
+
+                    alignment: Alignment.center,
+
+                    child: const Text(
+                      "GỬI LINK",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 10),
+
+                TextButton(
+                  onPressed: (){
+                    Navigator.pop(context);
+                  },
+                  child: const Text("Hủy"),
+                )
+
+              ],
+            ),
+          ),
+        );
+
+      },
+    );
+  }
+
 
   //UI
   @override
@@ -225,14 +364,29 @@ class _LoginScreenState extends State<LoginScreen> {
                   hint: "Nhập mật khẩu",
                   isPassword: true,
                 ),
-                const SizedBox(height: 30),
+                const SizedBox(height: 10),
 
                 if(isLoading)
                   const Padding(
                     padding: EdgeInsets.only(top: 16),
                     child: CircularProgressIndicator(),
                   ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 7),
+
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: GestureDetector(
+                    onTap: showEmailDialog,
+                    child: const Text(
+                      "Quên mật khẩu ?",
+                      style: TextStyle(
+                        color: Color(0xFF2196F3),
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
 
                 //2.1.2 Khi người dùng click "Đăng nhập" gọi hàm login để xử lý
                 GestureDetector(
@@ -260,16 +414,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
-
-                const Text(
-                  "Forgot Password?",
-                  style: TextStyle(
-                    color: Color(0xFF2196F3),
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
 
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -365,3 +510,4 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
+

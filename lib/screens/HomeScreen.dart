@@ -23,21 +23,40 @@ class _HomeScreenState extends State<HomeScreen> {
   String goal = "";
   int calories = 0;
 
-  String breakfast = "";
-  String lunch = "";
-  String dinner = "";
+  // ==============================
+  // MACRO DINH DƯỠNG
+  // ==============================
+  double protein = 0;
+  double carbs = 0;
+  double fat = 0;
+
+  // ==============================
+  // WATER TRACKER
+  // ==============================
+  double water = 0;
+  double waterGoal = 2000;
+
+  List<String> breakfastFoods = [];
+  List<String> lunchFoods = [];
+  List<String> dinnerFoods = [];
+
+  double breakfastCal = 0;
+  double lunchCal = 0;
+  double dinnerCal = 0;
+
   double fabX = 300;
   double fabY = 520;
-
-  int selectedIndex = 0;
 
   @override
   void initState() {
     super.initState();
     loadUserData();
+    loadTodayMeals();
   }
 
-  // Lấy thông tin user từ firestore
+  // ==============================
+  // LOAD USER DATA + API
+  // ==============================
   void loadUserData() async {
 
     if (_auth.currentUser == null) return;
@@ -51,6 +70,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
     Map<String, dynamic> data =
     doc.data() as Map<String, dynamic>;
+
+    setState(() {
+      name = data["name"] ?? "";
+      goal = data["goal"] ?? "";
+    });
 
     final response = await http.post(
       Uri.parse("https://smartmeal-ai-wp3g.onrender.com/recommend"),
@@ -76,13 +100,74 @@ class _HomeScreenState extends State<HomeScreen> {
     final nutrition = result["nutrition"];
 
     setState(() {
-      name = data["name"] ?? "";
-      goal = data["goal"] ?? "";
+
       calories = nutrition["Calories"].round();
+
+      protein = nutrition["Protein"]?.toDouble() ?? 0;
+      carbs = nutrition["Carbs"]?.toDouble() ?? 0;
+      fat = nutrition["Fat"]?.toDouble() ?? 0;
     });
   }
+  // ==============================
+// LOAD FOOD DIARY HÔM NAY
+// ==============================
+  void loadTodayMeals() async {
 
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    String today = DateTime.now().toString().substring(0,10);
+
+    final snapshot = await FirebaseFirestore.instance
+        .collection("food_diary")
+        .where("userId", isEqualTo: user.uid)
+        .where("date", isEqualTo: today)
+        .get();
+
+    breakfastFoods.clear();
+    lunchFoods.clear();
+    dinnerFoods.clear();
+
+    breakfastCal = 0;
+    lunchCal = 0;
+    dinnerCal = 0;
+
+    for (var doc in snapshot.docs) {
+
+      String foodId = doc["foodId"];
+      String meal = doc["meal"];
+
+      final foodDoc = await FirebaseFirestore.instance
+          .collection("food")
+          .doc(foodId)
+          .get();
+
+      final food = foodDoc.data();
+      if (food == null) continue;
+
+      String foodName = food["name"] ?? "";
+      double cal = (food["calories"] ?? 0).toDouble();
+
+      if (meal == "breakfast") {
+        breakfastFoods.add(foodName);
+        breakfastCal += cal;
+      }
+      else if (meal == "lunch") {
+        lunchFoods.add(foodName);
+        lunchCal += cal;
+      }
+      else if (meal == "dinner") {
+        dinnerFoods.add(foodName);
+        dinnerCal += cal;
+      }
+    }
+
+    setState(() {});
+  }
+
+  // ==============================
   // UI
+  // ==============================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -97,13 +182,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 end: Alignment.bottomCenter,
               ),
             ),
+
             child: Column(
               children: [
+
                 Expanded(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(24),
+
                     child: Column(
                       children: [
+
                         const SizedBox(height: 40),
 
                         Text(
@@ -115,69 +204,43 @@ class _HomeScreenState extends State<HomeScreen> {
 
                         const SizedBox(height: 20),
 
-                        // Calo
-                        Container(
-                          width: 250,
-                          height: 250,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: const Color(0xFFF2FDF7),
-                            border: Border.all(
-                                color: const Color(0xFFC7EEDB),
-                                width: 3),
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-
-                              Text(
-                                "$calories",
-                                style: const TextStyle(
-                                    fontSize: 42,
-                                    fontWeight: FontWeight.bold),
-                              ),
-
-                              const SizedBox(height: 8),
-
-                              const Text(
-                                "Calo đã tiêu thụ",
-                                style: TextStyle(color: Colors.grey),
-                              ),
-
-                              const SizedBox(height: 4),
-
-                              Text(
-                                "Mục tiêu: $goal",
-                                style: const TextStyle(
-                                    fontSize: 13,
-                                    color: Colors.grey),
-                              ),
-                            ],
-                          ),
-                        ),
+                        buildNutritionCircle(),
 
                         const SizedBox(height: 30),
 
-                        const Text(
-                          "Nhật ký hôm nay",
-                          style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold),
+                        // ==============================
+                        // ĐÃ THÊM: CARD BỮA ĂN
+                        // ==============================
+                        buildMealCard(
+                          icon: Icons.breakfast_dining,
+                          title: "Bữa sáng",
+                          recommend: (calories * 0.3).round(),
+                          eaten: breakfastCal,
+                          foods: breakfastFoods,
                         ),
 
-                        const SizedBox(height: 12),
+                        buildMealCard(
+                          icon: Icons.wb_sunny,
+                          title: "Bữa trưa",
+                          recommend: (calories * 0.4).round(),
+                          eaten: lunchCal,
+                          foods: lunchFoods,
+                        ),
 
-                        Text(breakfast),
-                        Text(lunch),
-                        Text(dinner),
+                        buildMealCard(
+                          icon: Icons.nightlight_round,
+                          title: "Bữa tối",
+                          recommend: (calories * 0.3).round(),
+                          eaten: dinnerCal,
+                          foods: dinnerFoods,
+                        ),
 
-                        const SizedBox(height: 60),
+                        const SizedBox(height: 80),
                       ],
                     ),
                   ),
                 ),
 
-                // FOOTER NAV
                 Footer(currentIndex: 0),
               ],
             ),
@@ -217,4 +280,287 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // ==============================
+  // VÒNG DINH DƯỠNG
+  // ==============================
+  Widget buildNutritionCircle() {
+
+    double proteinGoal = calories * 0.15 / 4;
+    double carbGoal = calories * 0.55 / 4;
+    double fatGoal = calories * 0.30 / 9;
+
+    return SizedBox(
+      width: 360,
+      height: 260,
+
+      child: Stack(
+        alignment: Alignment.center,
+
+        children: [
+
+          Container(
+            width: 180,
+            height: 180,
+
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFFF2FDF7),
+              border: Border.all(
+                color: const Color(0xFFC7EEDB),
+                width: 3,
+              ),
+            ),
+
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+
+                Text(
+                  "$calories",
+                  style: const TextStyle(
+                      fontSize: 40,
+                      fontWeight: FontWeight.bold),
+                ),
+
+                const SizedBox(height: 4),
+
+                const Text(
+                  "Calories",
+                  style: TextStyle(color: Colors.grey),
+                ),
+
+                const SizedBox(height: 2),
+
+                Text(
+                  "Goal: $goal",
+                  style: const TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+
+          Positioned(
+            left: 0,
+            top: 0,
+            child: macroBar("Carbs", carbs, carbGoal),
+          ),
+
+          Positioned(
+            right: 0,
+            top: 30,
+            child: macroBar("Protein", protein, proteinGoal),
+          ),
+
+          Positioned(
+            left: 0,
+            bottom: 30,
+            child: macroBar("Fat", fat, fatGoal),
+          ),
+
+          Positioned(
+            right: 0,
+            bottom: 0,
+            child: macroBar("Water", water, waterGoal, unit: "ml"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==============================
+  // MACRO PROGRESS
+  // ==============================
+  Widget macroBar(
+      String title,
+      double value,
+      double goal,
+      {String unit = "g"}
+      ) {
+
+    double percent = goal == 0 ? 0 : value / goal;
+    if (percent > 1) percent = 1;
+
+    return SizedBox(
+      width: 70,
+
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+
+          Text(
+            title,
+            style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13),
+          ),
+
+          const SizedBox(height: 4),
+
+          // ==============================
+          // PROGRESS BAR MỚI (GRADIENT)
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(25),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.35), // tăng bóng cho dễ thấy
+                  blurRadius: 8,
+                  spreadRadius: 1,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(25),
+
+              child: Container(
+                height: 12,
+                width: double.infinity,
+                color: Colors.grey[300],
+
+                child: Stack(
+                  children: [
+
+                    FractionallySizedBox(
+                      widthFactor: percent,
+
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              Color(0xFF79EEF2),
+                              Color(0xFF78F09C),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 4),
+
+          Text(
+            "${value.toStringAsFixed(0)}/${goal.toStringAsFixed(0)} $unit",
+            style: const TextStyle(
+                fontSize: 12,
+                color: Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==============================
+  // ĐÃ THÊM: CARD BỮA ĂN
+  // ==============================
+  Widget buildMealCard({
+    required IconData icon,
+    required String title,
+    required int recommend,
+    required double eaten,
+    required List<String> foods,
+  }) {
+
+    String subtitle;
+
+    if (eaten == 0) {
+      subtitle = "Khuyến nghị: $recommend kcal";
+    } else {
+
+      double remain = recommend - eaten;
+
+      subtitle =
+      "${eaten.toStringAsFixed(0)} kcal • "
+          "${remain >= 0 ? "Còn lại" : "Vượt quá"} "
+          "${remain.abs().toStringAsFixed(0)} kcal";
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(16),
+
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 6,
+          )
+        ],
+      ),
+
+      child: Row(
+        children: [
+
+          Container(
+            width: 45,
+            height: 45,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE8F8EF),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: const Color(0xFF00C569)),
+          ),
+
+          const SizedBox(width: 14),
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+
+                Text(
+                  title,
+                  style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold),
+                ),
+
+                if (foods.isNotEmpty)
+                  Text(
+                    foods.join(", "),
+                    style: const TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey),
+                  ),
+
+                const SizedBox(height: 4),
+
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+
+          IconButton(
+            icon: const Icon(
+              Icons.add_circle_outline,
+              color: Color(0xFF00C569),
+            ),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const SearchFoodScreen(),
+                ),
+              ).then((_) => loadTodayMeals());
+            },
+          )
+        ],
+      ),
+    );
+  }
 }
