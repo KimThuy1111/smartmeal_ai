@@ -57,12 +57,35 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   padding: const EdgeInsets.all(24),
                   child: Column(
                     children: [
-                      const Text(
-                        "Hồ sơ của bạn",
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      Row(
+                        children: [
+
+                          /// BACK BUTTON
+                          GestureDetector(
+                            onTap: () {
+                              Navigator.pop(context);
+                            },
+                            child: const Icon(
+                              Icons.chevron_left,
+                              size: 28,
+                            ),
+                          ),
+
+                          const Expanded(
+                            child: Center(
+                              child: Text(
+                                "Hồ sơ của bạn",
+                                style: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          /// để cân layout
+                          const SizedBox(width: 28),
+                        ],
                       ),
                       const SizedBox(height: 20),
                       Container(

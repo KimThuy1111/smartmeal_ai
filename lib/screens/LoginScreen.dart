@@ -5,9 +5,12 @@ import 'package:smartmeal_ai/screens/RegisterScreen.dart';
 import 'package:smartmeal_ai/screens/RegisterStep2Screen.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import '../models/Role.dart';
 import '../utils/notifier.dart';
 import 'HomeScreen.dart';
 import 'dart:async';
+
+import 'admin/AdminDashboardScreen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -54,30 +57,41 @@ class _LoginScreenState extends State<LoginScreen> {
       //2.1.5 Kiểm tra xem người dùng đã nhập thông tin cá nhân chưa
       DocumentSnapshot doc =
       await _db.collection("users").doc(uid).get();
-
-      if (doc.exists) {
-        //2.1.6 Chuyển đến trang home
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
-              (route) => false,
-        );
-        Notifier.showNotify(context, "Đăng nhập thành công!!!");
-
-      } else {
-        //2.2.6 Chuyển đến trang điền thông tin
+      String role = doc["role"];
+      if (role == Role.admin) {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (_) => RegisterStep2Screen(
-              uid: uid,
-              email: email,
-              name: userCredential.user!.displayName ?? "",
-              avatar: "https://cdn-icons-png.flaticon.com/512/149/149071.png",
-            ),
+            builder: (_) => const AdminDashboardScreen(),
           ),
         );
+
+      }else{
+        if (doc.exists) {
+          //2.1.6 Chuyển đến trang home
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => const HomeScreen()),
+                (route) => false,
+          );
+          Notifier.showNotify(context, "Đăng nhập thành công!!!");
+
+        } else {
+          //2.2.6 Chuyển đến trang điền thông tin
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => RegisterStep2Screen(
+                uid: uid,
+                email: email,
+                name: userCredential.user!.displayName ?? "",
+                avatar: "https://cdn-icons-png.flaticon.com/512/149/149071.png",
+              ),
+            ),
+          );
+        }
       }
+
 
     } on FirebaseAuthException catch (e) {
 
@@ -133,34 +147,46 @@ class _LoginScreenState extends State<LoginScreen> {
       // 5. Kiểm tra Firestore đã có profile chưa
       DocumentSnapshot doc =
       await _db.collection("users").doc(uid).get();
-
-      if (doc.exists) {
-
-        // Đã nhập thông tin Step2 → vào Home
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
-              (route) => false,
-        );
-
-        Notifier.showNotify(context, "Đăng nhập thành công!");
-
-      } else {
-
-        // Chưa có thông tin Step2
+      String role = doc["role"];
+      if (role == Role.admin) {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (_) => RegisterStep2Screen(
-              uid: uid,
-              email: user.email ?? "",
-              name: user.displayName ?? "",
-              avatar: user.photoURL ??
-                  "https://cdn-icons-png.flaticon.com/512/149/149071.png",
-            ),
+            builder: (_) => const AdminDashboardScreen(),
           ),
         );
+
+      }else{
+        if (doc.exists) {
+
+          // Đã nhập thông tin Step2 → vào Home
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => const HomeScreen()),
+                (route) => false,
+          );
+
+          Notifier.showNotify(context, "Đăng nhập thành công!");
+
+        } else {
+
+          // Chưa có thông tin Step2
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => RegisterStep2Screen(
+                uid: uid,
+                email: user.email ?? "",
+                name: user.displayName ?? "",
+                avatar: user.photoURL ??
+                    "https://cdn-icons-png.flaticon.com/512/149/149071.png",
+              ),
+            ),
+          );
+        }
       }
+
+
 
     } catch (e) {
 

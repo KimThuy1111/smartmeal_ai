@@ -23,16 +23,10 @@ class _HomeScreenState extends State<HomeScreen> {
   String goal = "";
   int calories = 0;
 
-  // ==============================
-  // MACRO DINH DƯỠNG
-  // ==============================
   double protein = 0;
   double carbs = 0;
   double fat = 0;
 
-  // ==============================
-  // WATER TRACKER
-  // ==============================
   double water = 0;
   double waterGoal = 2000;
 
@@ -54,9 +48,7 @@ class _HomeScreenState extends State<HomeScreen> {
     loadTodayMeals();
   }
 
-  // ==============================
-  // LOAD USER DATA + API
-  // ==============================
+  // Load user
   void loadUserData() async {
 
     if (_auth.currentUser == null) return;
@@ -78,6 +70,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final response = await http.post(
       Uri.parse("https://smartmeal-ai-wp3g.onrender.com/recommend"),
+      // Uri.parse("http://10.0.2.2:8000/recommend"),
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({
         "age": data["age"],
@@ -108,9 +101,7 @@ class _HomeScreenState extends State<HomeScreen> {
       fat = nutrition["Fat"]?.toDouble() ?? 0;
     });
   }
-  // ==============================
-// LOAD FOOD DIARY HÔM NAY
-// ==============================
+  // Load nhật kí ăn uống
   void loadTodayMeals() async {
 
     final user = FirebaseAuth.instance.currentUser;
@@ -165,9 +156,7 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {});
   }
 
-  // ==============================
-  // UI
-  // ==============================
+  // Ui
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -208,9 +197,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
                         const SizedBox(height: 30),
 
-                        // ==============================
-                        // ĐÃ THÊM: CARD BỮA ĂN
-                        // ==============================
                         buildMealCard(
                           icon: Icons.breakfast_dining,
                           title: "Bữa sáng",
@@ -280,9 +266,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ==============================
-  // VÒNG DINH DƯỠNG
-  // ==============================
   Widget buildNutritionCircle() {
 
     double proteinGoal = calories * 0.15 / 4;
@@ -369,9 +352,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ==============================
-  // MACRO PROGRESS
-  // ==============================
   Widget macroBar(
       String title,
       double value,
@@ -398,8 +378,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
           const SizedBox(height: 4),
 
-          // ==============================
-          // PROGRESS BAR MỚI (GRADIENT)
           Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(25),
@@ -458,9 +436,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ==============================
-  // ĐÃ THÊM: CARD BỮA ĂN
-  // ==============================
   Widget buildMealCard({
     required IconData icon,
     required String title,

@@ -77,6 +77,7 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
     // Gọi API lấy TDEE
     final response = await http.post(
       Uri.parse("https://smartmeal-ai-wp3g.onrender.com/tdee"),
+      // Uri.parse("http://10.0.2.2:8000/tdee"),
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({
         "age": userData["age"],

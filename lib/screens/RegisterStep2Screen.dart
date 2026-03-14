@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '../models/Role.dart';
 import '../models/User.dart';
 import '../utils/notifier.dart';
 import 'HomeScreen.dart';
@@ -58,6 +59,7 @@ class _RegisterStep2ScreenState extends State<RegisterStep2Screen> {
         avatar: widget.avatar.isEmpty
             ? "https://cdn-icons-png.flaticon.com/512/149/149071.png"
             : widget.avatar,
+        role: Role.user,
       );
 
       await _db.collection("users").doc(widget.uid).set(user.toMap());
