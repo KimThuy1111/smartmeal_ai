@@ -9,7 +9,13 @@ import 'EditProfileScreen.dart';
 import 'LoginScreen.dart';
 
 class UserProfileScreen extends StatefulWidget {
-  const UserProfileScreen({super.key});
+
+  final bool showFooter;
+
+  const UserProfileScreen({
+    super.key,
+    this.showFooter = true,
+  });
 
   @override
   State<UserProfileScreen> createState() => _UserProfileScreenState();
@@ -46,7 +52,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      bottomNavigationBar: const Footer(currentIndex: 3),
+      bottomNavigationBar:
+      widget.showFooter ? const Footer(currentIndex: 3) : null,
 
       body: BackgroundGradient(
         child: SafeArea(
