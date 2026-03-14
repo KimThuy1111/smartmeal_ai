@@ -1,10 +1,13 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import 'package:smartmeal_ai/screens/LoginScreen.dart';
 import 'package:smartmeal_ai/screens/HomeScreen.dart';
+import 'package:smartmeal_ai/screens/admin/AdminDashboardScreen.dart';
 import 'firebase_options.dart';
+import 'models/Role.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -41,24 +44,53 @@ class AuthWrapper extends StatelessWidget {
 
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
+
       builder: (context, snapshot) {
 
-        //Kiểm tra trạng thái đăng nhập
+        // Đang load Firebase
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(),
-            ),
+            body: Center(child: CircularProgressIndicator()),
           );
         }
 
-        //Nếu đã đăng nhập
-        if (snapshot.hasData) {
-          return const HomeScreen();
+        // Chưa đăng nhập
+        if (!snapshot.hasData) {
+          return const LoginScreen();
         }
 
-        //Nếu chưa đăng nhập
-        return const LoginScreen();
+        // Đã đăng nhập → kiểm tra role
+        String uid = snapshot.data!.uid;
+
+        return FutureBuilder<DocumentSnapshot>(
+          future: FirebaseFirestore.instance
+              .collection("users")
+              .doc(uid)
+              .get(),
+
+          builder: (context, roleSnapshot) {
+
+            if (roleSnapshot.connectionState == ConnectionState.waiting) {
+              return const Scaffold(
+                body: Center(child: CircularProgressIndicator()),
+              );
+            }
+
+            if (!roleSnapshot.hasData || !roleSnapshot.data!.exists) {
+              return const LoginScreen();
+            }
+
+            String role = roleSnapshot.data!["role"];
+
+            // ADMIN
+            if (role == Role.admin) {
+              return const AdminDashboardScreen();
+            }
+
+            // USER
+            return const HomeScreen();
+          },
+        );
       },
     );
   }
