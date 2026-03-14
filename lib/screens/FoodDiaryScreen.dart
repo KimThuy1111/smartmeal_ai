@@ -74,26 +74,12 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
     final userData = userDoc.data();
     if (userData == null) return;
 
-    // Gọi API lấy TDEE
-    final response = await http.post(
-      Uri.parse("https://smartmeal-ai-wp3g.onrender.com/tdee"),
-      // Uri.parse("http://10.0.2.2:8000/tdee"),
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode({
-        "age": userData["age"],
-        "gender": userData["gender"],
-        "height": userData["height"],
-        "weight": userData["weight"],
-        "activity": userData["activity"],
-        "disease": userData["diseases"]?.isNotEmpty == true
-            ? userData["diseases"][0]
-            : "None",
-      }),
-    );
+    if(userData["nutrition"] != null){
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      targetCalories = (data["Calories"] ?? 0).toDouble();
+      final nutrition = userData["nutrition"];
+
+      targetCalories =
+          (nutrition["Calories"] ?? 0).toDouble();
     }
 
     // Load dữ liệu món đã ăn từ Firestore

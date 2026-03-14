@@ -11,6 +11,7 @@ class User {
   final List<String> diseases;
   final String avatar;
   final String role;
+  final Map<String, dynamic>? nutrition;
 
   User({
     required this.uid,
@@ -25,6 +26,7 @@ class User {
     required this.diseases,
     required this.avatar,
     required this.role,
+    this.nutrition,
   });
 
   Map<String, dynamic> toMap() {
@@ -40,7 +42,8 @@ class User {
       "goal": goal,
       "diseases": diseases,
       "avatar": avatar,
-      "role": role
+      "role": role,
+      "nutrition": nutrition
     };
   }
 }
