@@ -67,7 +67,22 @@ class _HomeScreenState extends State<HomeScreen> {
       name = data["name"] ?? "";
       goal = data["goal"] ?? "";
     });
+    if (data["nutrition"] != null) {
 
+      // Nếu đã có nutrition
+
+      final nutrition = data["nutrition"];
+
+      setState(() {
+        calories = nutrition["Calories"].round();
+        protein = nutrition["Protein"]?.toDouble() ?? 0;
+        carbs = nutrition["Carbs"]?.toDouble() ?? 0;
+        fat = nutrition["Fat"]?.toDouble() ?? 0;
+      });
+
+      return;
+    }
+    //Chưa có gọi api
     final response = await http.post(
       Uri.parse("https://smartmeal-ai-wp3g.onrender.com/recommend"),
       // Uri.parse("http://10.0.2.2:8000/recommend"),
@@ -99,6 +114,11 @@ class _HomeScreenState extends State<HomeScreen> {
       protein = nutrition["Protein"]?.toDouble() ?? 0;
       carbs = nutrition["Carbs"]?.toDouble() ?? 0;
       fat = nutrition["Fat"]?.toDouble() ?? 0;
+    });
+    await _db.collection("users")
+        .doc(uid)
+        .update({
+      "nutrition": nutrition
     });
   }
   // Load nhật kí ăn uống
