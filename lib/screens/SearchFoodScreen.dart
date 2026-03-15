@@ -91,6 +91,7 @@ class _SearchFoodScreenState extends State<SearchFoodScreen> {
     });
 
     Notifier.showNotify(context, "Thêm vào nhật ký thành công");
+
   }
 
   // Dialog chọn bữa ăn

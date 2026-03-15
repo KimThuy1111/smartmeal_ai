@@ -6,6 +6,7 @@ import '../component/BackgroundGradient.dart';
 import '../component/Footer.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../models/SuggestedMenu.dart';
 import 'FoodDetailScreen.dart';
 
 class SuggestMealScreen extends StatefulWidget {
@@ -35,9 +36,9 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
     loadMenuFromFirestore();
   }
 
-  /// ==============================
-  /// LOAD MENU TỪ FIRESTORE (CACHE)
-  /// ==============================
+  /// ====================================================
+  /// LOAD MENU TỪ FIRESTORE (ƯU TIÊN)
+  /// ====================================================
 
   Future<void> loadMenuFromFirestore() async {
 
@@ -46,50 +47,53 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
 
     setState(() => isLoading = true);
 
-    final snapshot = await FirebaseFirestore.instance
+    /// FIX: đọc doc theo user + date
+    final doc = await FirebaseFirestore.instance
         .collection("suggested_menus")
-        .where("userId", isEqualTo: user.uid)
-        .where("date", isEqualTo: today)
-        .limit(1)
+        .doc("${user.uid}_$today")
         .get();
 
-    if(snapshot.docs.isEmpty){
-      await fetchMenu(); // chưa có menu → gọi API
+    /// FIX: nếu chưa có menu → gọi API
+    if(!doc.exists){
+      await fetchMenu();
       return;
     }
 
-    final data = snapshot.docs.first.data();
+    /// parse model
+    final suggestedMenu =
+    SuggestedMenu.fromMap(doc.data()!);
 
-    liked = data["liked"];
+    liked = suggestedMenu.liked;
 
-    Map<String,dynamic> storedMenu = data["menu"];
-
+    /// load food chi tiết
     Map<String,List<Map<String,dynamic>>> loadedMenu = {
-      "Breakfast":[],
-      "Lunch":[],
-      "Dinner":[]
+      "Breakfast": [],
+      "Lunch": [],
+      "Dinner": []
     };
 
-    for(String meal in storedMenu.keys){
+    for(String meal in suggestedMenu.menu.keys){
 
-      List ids = storedMenu[meal];
+      List<String> ids = suggestedMenu.menu[meal]!;
 
-      for(String id in ids){
-
-        final foodDoc = await FirebaseFirestore.instance
+      /// OPTIMIZE: load song song
+      List<Future<DocumentSnapshot>> futures = ids.map((id){
+        return FirebaseFirestore.instance
             .collection("food")
             .doc(id)
             .get();
+      }).toList();
 
-        if(foodDoc.exists){
+      final docs = await Future.wait(futures);
 
-          final food = foodDoc.data()!;
-          food["id"] = foodDoc.id;
+      for(var d in docs){
 
-          loadedMenu[meal]!.add(food);
+        if(!d.exists) continue;
 
-        }
+        final data = d.data() as Map<String,dynamic>;
+        data["id"] = d.id;
 
+        loadedMenu[meal]!.add(data);
       }
 
     }
@@ -101,9 +105,9 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
 
   }
 
-  /// ==============================
-  /// LOAD CALORIES ĐÃ ĂN
-  /// ==============================
+  /// ====================================================
+  /// LOAD CALORIES ĐÃ ĂN TRONG NGÀY
+  /// ====================================================
 
   Future<void> loadTodayCalories() async {
 
@@ -120,30 +124,43 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
     lunchCalories = 0;
     dinnerCalories = 0;
 
+    /// OPTIMIZE: load food song song
+
+    List<Future<DocumentSnapshot>> futures = [];
+
     for (var doc in snapshot.docs) {
 
-      final foodId = doc["foodId"];
-      final meal = doc["meal"];
+      futures.add(
+          FirebaseFirestore.instance
+              .collection("food")
+              .doc(doc["foodId"])
+              .get()
+      );
 
-      final foodDoc = await FirebaseFirestore.instance
-          .collection("food")
-          .doc(foodId)
-          .get();
+    }
 
-      final data = foodDoc.data();
-      if (data == null) continue;
+    final foodDocs = await Future.wait(futures);
+
+    for(int i=0;i<foodDocs.length;i++){
+
+      final meal = snapshot.docs[i]["meal"];
+      final data = foodDocs[i].data() as Map<String,dynamic>?;
+
+      if(data == null) continue;
 
       final cal = (data["calories"] ?? 0).toDouble();
 
       if (meal == "breakfast") breakfastCalories += cal;
       if (meal == "lunch") lunchCalories += cal;
       if (meal == "dinner") dinnerCalories += cal;
+
     }
+
   }
 
-  /// ==============================
+  /// ====================================================
   /// GỌI FAST API
-  /// ==============================
+  /// ====================================================
 
   Future<void> fetchMenu() async {
 
@@ -163,6 +180,8 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
 
       final userData = userDoc.data();
       if(userData == null) return;
+
+      /// CALL FAST API
 
       final response = await http.post(
         Uri.parse("https://smartmeal-ai-wp3g.onrender.com/recommend"),
@@ -202,26 +221,27 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
 
         for(var item in items){
 
+          /// tìm food theo stt
           final snapshot = await FirebaseFirestore.instance
               .collection("food")
               .where("stt", isEqualTo: item["stt"])
               .limit(1)
               .get();
 
-          if(snapshot.docs.isNotEmpty){
+          if(snapshot.docs.isEmpty) continue;
 
-            final doc = snapshot.docs.first;
+          final doc = snapshot.docs.first;
+          final foodData = doc.data();
 
-            final foodData = doc.data();
-            foodData["id"] = doc.id;
+          foodData["id"] = doc.id;
 
-            foods.add(foodData);
-          }
+          foods.add(foodData);
         }
 
         fullMenu[meal] = foods;
       }
 
+      /// lưu firestore
       await saveSuggestedMenu(fullMenu);
 
       setState(() {
@@ -237,9 +257,9 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
 
   }
 
-  /// ==============================
+  /// ====================================================
   /// LƯU MENU FIRESTORE
-  /// ==============================
+  /// ====================================================
 
   Future<void> saveSuggestedMenu(
       Map<String,List<Map<String,dynamic>>> menu) async {
@@ -257,51 +277,47 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
 
     });
 
+    final suggestedMenu = SuggestedMenu(
+      userId: user.uid,
+      date: today,
+      menu: foodIds,
+      liked: null,
+    );
+
     await FirebaseFirestore.instance
         .collection("suggested_menus")
-        .add({
-      "userId": user.uid,
-      "date": today,
-      "menu": foodIds,
-      "liked": null,
-      "createdAt": FieldValue.serverTimestamp()
-    });
+        .doc("${user.uid}_$today")
+        .set(suggestedMenu.toMap());
 
   }
-
-  /// ==============================
-  /// LIKE / DISLIKE
-  /// ==============================
-
   Future<void> rateMenu(bool like) async {
 
     final user = FirebaseAuth.instance.currentUser;
     if(user == null) return;
 
-    final snapshot = await FirebaseFirestore.instance
-        .collection("suggested_menus")
-        .where("userId", isEqualTo: user.uid)
-        .where("date", isEqualTo: today)
-        .limit(1)
-        .get();
-
-    if(snapshot.docs.isEmpty) return;
+    /// FIX: update trực tiếp docId (không cần query)
 
     await FirebaseFirestore.instance
         .collection("suggested_menus")
-        .doc(snapshot.docs.first.id)
+        .doc("${user.uid}_$today")
         .update({"liked": like});
 
     setState(() {
       liked = like;
     });
-    Notifier.showNotify(context, like ? "Cảm ơn bạn đã thích thực đơn hôm nay" : "Cập nhật món ăn thành công");
+
+    Notifier.showNotify(
+        context,
+        like
+            ? "Cảm ơn bạn đã thích thực đơn hôm nay"
+            : "Cập nhật món ăn thành công"
+    );
 
   }
 
-  /// ==============================
+  /// ====================================================
   /// UI
-  /// ==============================
+  /// ====================================================
 
   @override
   Widget build(BuildContext context) {
@@ -360,6 +376,7 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
                       buildMealSection("Bữa Sáng", menu?["Breakfast"] ?? []),
                       buildMealSection("Bữa Trưa", menu?["Lunch"] ?? []),
                       buildMealSection("Bữa Tối", menu?["Dinner"] ?? []),
+
                       const SizedBox(height:30),
 
                       if(liked == null)
@@ -407,10 +424,6 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
       ),
     );
   }
-
-  /// ==============================
-  /// ITEM FOOD
-  /// ==============================
 
   Widget buildMealSection(String title, List foods){
 
