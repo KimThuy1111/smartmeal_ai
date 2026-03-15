@@ -60,7 +60,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
       calController.text = f.calories.toString();
       proteinController.text = f.protein.toString();
       fatController.text = f.fat.toString();
-      carbController.text = f.carbs.toString();
+      carbController.text = f.carb.toString();
 
       calciumController.text = f.calcium.toString();
       ironController.text = f.iron.toString();
@@ -137,7 +137,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
         "calories": parseValue(calController),
         "protein": parseValue(proteinController),
         "fat": parseValue(fatController),
-        "carbs": parseValue(carbController),
+        "carb": parseValue(carbController),
 
         "calcium": parseValue(calciumController),
         "iron": parseValue(ironController),
@@ -338,7 +338,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
                       input("Fat (g)", fatController,
                           type: TextInputType.number),
 
-                      input("Carbs (g)", carbController,
+                      input("carb (g)", carbController,
                           type: TextInputType.number),
 
                       const SizedBox(height: 10),
