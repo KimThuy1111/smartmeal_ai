@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:smartmeal_ai/screens/admin/UserManagementScreen.dart';
 import '../UserProfileScreen.dart';
 import 'FoodManagementScreen.dart';
 import '../LoginScreen.dart';
@@ -292,12 +293,28 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     title: "Món ăn",
                     value: totalFoods.toString(),
                     icon: Icons.restaurant,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const FoodManagementScreen(),
+                        ),
+                      );
+                    },
                   ),
 
                   statCard(
                     title: "Người dùng",
                     value: totalUsers.toString(),
                     icon: Icons.people,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const UserManagementScreen(),
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
@@ -316,6 +333,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   );
                 },
               ),
+              const SizedBox(height: 20),
+              menuCard(
+                title: "Quản lý người dùng",
+                icon: Icons.people,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const UserManagementScreen(),
+                    ),
+                  );
+                },
+              ),
 
             ],
           ),
@@ -328,37 +358,42 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     required String title,
     required String value,
     required IconData icon,
+    VoidCallback? onTap,
   }) {
 
-    return Container(
-      width: 150,
-      padding: const EdgeInsets.all(20),
+    return GestureDetector(
+      onTap: onTap,
 
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 6)
-        ],
-      ),
+      child: Container(
+        width: 150,
+        padding: const EdgeInsets.all(20),
 
-      child: Column(
-        children: [
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: const [
+            BoxShadow(color: Colors.black12, blurRadius: 6)
+          ],
+        ),
 
-          Icon(icon, size: 40, color: const Color(0xFF00C569)),
+        child: Column(
+          children: [
 
-          const SizedBox(height: 10),
+            Icon(icon, size: 40, color: const Color(0xFF00C569)),
 
-          Text(
-            value,
-            style: const TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold),
-          ),
+            const SizedBox(height: 10),
 
-          Text(title),
+            Text(
+              value,
+              style: const TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold),
+            ),
 
-        ],
+            Text(title),
+
+          ],
+        ),
       ),
     );
   }

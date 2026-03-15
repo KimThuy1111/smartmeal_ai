@@ -222,6 +222,7 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
 
       final response = await http.post(
         Uri.parse("https://smartmeal-ai-wp3g.onrender.com/recommend"),
+        // Uri.parse("http://10.0.2.2:8000/recommend"),
         headers: {"Content-Type":"application/json"},
         body: jsonEncode({
           "age": userData["age"],
@@ -327,6 +328,19 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
         .set(suggestedMenu.toMap());
 
   }
+  // Kiểm tra xem menu có món k
+  bool hasMenuFood() {
+
+    if(menu == null) return false;
+
+    for(var meal in menu!.values){
+      if(meal.isNotEmpty){
+        return true;
+      }
+    }
+
+    return false;
+  }
   Future<void> rateMenu(bool like) async {
 
     final user = FirebaseAuth.instance.currentUser;
@@ -424,10 +438,14 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
 
                   child: Column(
                     children: [
-
                       Text(
                         "Dựa trên mục tiêu ${nutrition?["Calories"] ?? 0} Calo/ngày",
                         style: const TextStyle(color: Colors.grey),
+                      ),
+                      const SizedBox(height:5),
+                      Text(
+                        "Các món ăn chỉ mang tính chất tham khảo!!!!",
+                        style: const TextStyle(color: Colors.red),
                       ),
 
                       const SizedBox(height:20),
@@ -435,10 +453,46 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
                       buildMealSection("Bữa Sáng", menu?["Breakfast"] ?? [], "breakfast"),
                       buildMealSection("Bữa Trưa", menu?["Lunch"] ?? [], "lunch"),
                       buildMealSection("Bữa Tối", menu?["Dinner"] ?? [], "dinner"),
+                      /// FIX: nếu không còn món gợi ý
+                      if(!hasMenuFood())
+                        const Padding(
+                          padding: EdgeInsets.only(top: 40),
+                          child: Column(
+                            children: [
+
+                              Icon(
+                                Icons.emoji_food_beverage,
+                                size: 60,
+                                color: Colors.green,
+                              ),
+
+                              SizedBox(height: 10),
+
+                              Text(
+                                "Hôm nay bạn đã ăn đủ calo 🎉",
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+
+                              SizedBox(height: 6),
+
+                              Text(
+                                "Không cần gợi ý thêm món ăn",
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                ),
+                              ),
+
+                            ],
+                          ),
+                        ),
 
                       const SizedBox(height:30),
 
-                      if(liked == null)
+                      if(liked == null && hasMenuFood())
                         Column(
                           children: [
 

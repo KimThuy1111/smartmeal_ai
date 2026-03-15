@@ -46,4 +46,32 @@ class User {
       "nutrition": nutrition
     };
   }
+  factory User.fromMap(Map<String, dynamic> map, String id) {
+
+    return User(
+
+      uid: id,
+      email: map["email"] ?? "",
+      name: map["name"] ?? "",
+
+      age: map["age"] ?? 0,
+
+      weight: (map["weight"] ?? 0).toDouble(),
+      height: (map["height"] ?? 0).toDouble(),
+
+      gender: map["gender"] ?? "",
+      activity: map["activity"] ?? "",
+      goal: map["goal"] ?? "",
+
+      diseases: List<String>.from(map["diseases"] ?? []),
+
+      avatar: map["avatar"] ??
+          "https://cdn-icons-png.flaticon.com/512/149/149071.png",
+
+      role: map["role"] ?? "user",
+
+      nutrition: map["nutrition"],
+
+    );
+  }
 }
