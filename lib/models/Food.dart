@@ -6,7 +6,7 @@ class Food {
   double calories;
   double protein;
   double fat;
-  double carbs;
+  double carb;
 
   double calcium;
   double iron;
@@ -25,7 +25,7 @@ class Food {
     required this.calories,
     required this.protein,
     required this.fat,
-    required this.carbs,
+    required this.carb,
     required this.calcium,
     required this.iron,
     required this.zinc,
@@ -45,7 +45,7 @@ class Food {
       calories: (map["calories"] ?? 0).toDouble(),
       protein: (map["protein"] ?? 0).toDouble(),
       fat: (map["fat"] ?? 0).toDouble(),
-      carbs: (map["carbs"] ?? 0).toDouble(),
+      carb: (map["carb"] ?? 0).toDouble(),
       calcium: (map["calcium"] ?? 0).toDouble(),
       iron: (map["iron"] ?? 0).toDouble(),
       zinc: (map["zinc"] ?? 0).toDouble(),

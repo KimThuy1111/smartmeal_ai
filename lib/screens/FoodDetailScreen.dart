@@ -203,7 +203,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
                     const SizedBox(width: 10),
                     macroBox("Chất béo", "${food!.fat} g"),
                     const SizedBox(width: 10),
-                    macroBox("Carb", "${food!.carbs} g"),
+                    macroBox("Carb", "${food!.carb} g"),
                   ],
                 ),
               ),

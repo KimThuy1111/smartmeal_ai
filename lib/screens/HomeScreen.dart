@@ -24,11 +24,11 @@ class _HomeScreenState extends State<HomeScreen> {
   int calories = 0;
 
   double protein = 0;
-  double carbs = 0;
+  double carb = 0;
   double fat = 0;
 
   double eatenProtein = 0;
-  double eatenCarbs = 0;
+  double eatencarb = 0;
   double eatenFat = 0;
 
   List<String> breakfastFoods = [];
@@ -77,7 +77,7 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         calories = nutrition["Calories"].round();
         protein = nutrition["Protein"]?.toDouble() ?? 0;
-        carbs = nutrition["Carbs"]?.toDouble() ?? 0;
+        carb = nutrition["carb"]?.toDouble() ?? 0;
         fat = nutrition["Fat"]?.toDouble() ?? 0;
       });
 
@@ -113,7 +113,7 @@ class _HomeScreenState extends State<HomeScreen> {
       calories = nutrition["Calories"].round();
 
       protein = nutrition["Protein"]?.toDouble() ?? 0;
-      carbs = nutrition["Carbs"]?.toDouble() ?? 0;
+      carb = nutrition["carb"]?.toDouble() ?? 0;
       fat = nutrition["Fat"]?.toDouble() ?? 0;
     });
     await _db.collection("users")
@@ -145,7 +145,7 @@ class _HomeScreenState extends State<HomeScreen> {
     dinnerCal = 0;
 
     eatenProtein = 0;
-    eatenCarbs = 0;
+    eatencarb = 0;
     eatenFat = 0;
 
     for (var doc in snapshot.docs) {
@@ -165,11 +165,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
       double cal = (food["calories"] ?? 0).toDouble();
       double p = (food["protein"] ?? 0).toDouble();
-      double c = (food["carbs"] ?? 0).toDouble();
+      double c = (food["carb"] ?? 0).toDouble();
       double f = (food["fat"] ?? 0).toDouble();
 
       eatenProtein += p;
-      eatenCarbs += c;
+      eatencarb += c;
       eatenFat += f;
 
       if (meal == "breakfast") {
@@ -360,7 +360,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Positioned(
             left: 0,
             top: 0,
-            child: macroBar("Carbs", eatenCarbs, carbs),
+            child: macroBar("carb", eatencarb, carb),
           ),
 
           Positioned(

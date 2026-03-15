@@ -12,7 +12,10 @@ import '../models/SuggestedMenu.dart';
 import 'FoodDetailScreen.dart';
 
 class SuggestMealScreen extends StatefulWidget {
-  const SuggestMealScreen({super.key});
+
+  final String? addedFoodId;
+
+  const SuggestMealScreen({super.key, this.addedFoodId});
 
   @override
   State<SuggestMealScreen> createState() => _SuggestMealScreenState();
@@ -35,7 +38,21 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
   @override
   void initState() {
     super.initState();
-    loadMenuFromFirestore();
+    loadMenuFromFirestore().then((_) {
+
+      /// nếu có món vừa thêm
+      if(widget.addedFoodId != null){
+
+        bool exists = isFoodInMenu(widget.addedFoodId!);
+
+        /// nếu không có trong menu → gọi lại API
+        if(!exists){
+          fetchMenu();
+        }
+
+      }
+
+    });
   }
 
   /// ====================================================
@@ -105,6 +122,24 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
       isLoading = false;
     });
 
+  }
+  bool isFoodInMenu(String foodId){
+
+    if(menu == null) return false;
+
+    for(var meal in menu!.values){
+
+      for(var food in meal){
+
+        if(food["id"] == foodId){
+          return true;
+        }
+
+      }
+
+    }
+
+    return false;
   }
 
   /// ====================================================

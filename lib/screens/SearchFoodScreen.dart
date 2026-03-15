@@ -7,6 +7,7 @@ import '../models/Food.dart';
 import '../repository/FoodRepository.dart';
 import '../utils/notifier.dart';
 import 'FoodDetailScreen.dart';
+import 'SuggestMealScreen.dart';
 
 class SearchFoodScreen extends StatefulWidget {
   const SearchFoodScreen({super.key});
@@ -93,6 +94,15 @@ class _SearchFoodScreenState extends State<SearchFoodScreen> {
 
     Notifier.showNotify(context, "Thêm vào nhật ký thành công");
 
+    /// CHUYỂN SANG TRANG GỢI Ý
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SuggestMealScreen(
+          addedFoodId: food.id,
+        ),
+      ),
+    );
   }
 
   // Dialog chọn bữa ăn
