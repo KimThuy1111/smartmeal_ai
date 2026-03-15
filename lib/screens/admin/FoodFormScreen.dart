@@ -50,6 +50,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     super.initState();
 
     if (widget.food != null) {
+
       final f = widget.food!;
 
       nameController.text = f.name;
@@ -71,6 +72,10 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
       mufaController.text = f.mufaPufa.toString();
     }
   }
+
+  /// =========================================================
+  /// PICK IMAGE
+  /// =========================================================
 
   Future<void> pickAndUploadImage() async {
 
@@ -114,6 +119,10 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
       uploading = false;
     });
   }
+
+  /// =========================================================
+  /// SAVE FOOD
+  /// =========================================================
 
   Future<void> saveFood() async {
 
@@ -166,6 +175,11 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
 
     }
   }
+
+  /// =========================================================
+  /// INPUT
+  /// =========================================================
+
   Widget input(String title, TextEditingController controller,
       {TextInputType type = TextInputType.text}) {
 
@@ -227,31 +241,16 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     );
   }
 
+  /// =========================================================
+  /// UI
+  /// =========================================================
+
   @override
   Widget build(BuildContext context) {
 
     return Scaffold(
 
-      appBar: AppBar(
-        title: Text(widget.food == null
-            ? "Thêm món ăn"
-            : "Sửa món ăn"),
-        centerTitle: true,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                Color(0xFF79EEF2),
-                Color(0xFF78F09C),
-              ],
-            ),
-          ),
-        ),
-      ),
-
+      /// FIX: bỏ AppBar → dùng header giống FoodManagementScreen
       body: Container(
 
         decoration: const BoxDecoration(
@@ -262,112 +261,160 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
           ),
         ),
 
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
+        child: SafeArea(
 
           child: Column(
+
             children: [
 
-              input("Tên món ăn", nameController),
-              input("Tên tiếng Anh", englishController),
-
-              imageInput(),
-
               const SizedBox(height: 10),
 
-              const Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  "Macros",
-                  style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold),
-                ),
-              ),
+              /// FIX: HEADER giống trang quản lý món ăn
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
 
-              const SizedBox(height: 10),
+                child: Row(
+                  children: [
 
-              input("Calories", calController,
-                  type: TextInputType.number),
-
-              input("Protein (g)", proteinController,
-                  type: TextInputType.number),
-
-              input("Fat (g)", fatController,
-                  type: TextInputType.number),
-
-              input("Carbs (g)", carbController,
-                  type: TextInputType.number),
-
-              const SizedBox(height: 10),
-
-              const Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  "Vi chất dinh dưỡng",
-                  style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold),
-                ),
-              ),
-
-              const SizedBox(height: 10),
-
-              input("Calcium", calciumController,
-                  type: TextInputType.number),
-
-              input("Iron", ironController,
-                  type: TextInputType.number),
-
-              input("Zinc", zincController,
-                  type: TextInputType.number),
-
-              input("Sodium", sodiumController,
-                  type: TextInputType.number),
-
-              input("Magnesium", magnesiumController,
-                  type: TextInputType.number),
-
-              input("Vitamin A", vitaminAController,
-                  type: TextInputType.number),
-
-              input("Potassium", potassiumController,
-                  type: TextInputType.number),
-
-              input("MUFA + PUFA", mufaController,
-                  type: TextInputType.number),
-
-              const SizedBox(height: 20),
-
-              GestureDetector(
-                onTap: saveFood,
-                child: Container(
-                  height: 50,
-                  width: double.infinity,
-
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [
-                        Color(0xFF79EEF2),
-                        Color(0xFF78F09C),
-                      ],
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: const Icon(Icons.chevron_left, size: 28),
                     ),
-                    borderRadius: BorderRadius.circular(25),
-                  ),
 
-                  alignment: Alignment.center,
-
-                  child: const Text(
-                    "LƯU MÓN ĂN",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                    Expanded(
+                      child: Center(
+                        child: Text(
+                          widget.food == null
+                              ? "Thêm món ăn"
+                              : "Chỉnh sửa món ăn",
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
+
+                    const SizedBox(width: 28),
+                  ],
                 ),
               ),
 
-              const SizedBox(height: 30)
+              const SizedBox(height: 10),
+
+              /// FORM
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+
+                  child: Column(
+                    children: [
+
+                      input("Tên món ăn", nameController),
+                      input("Tên tiếng Anh", englishController),
+
+                      imageInput(),
+
+                      const SizedBox(height: 10),
+
+                      const Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          "Macros",
+                          style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold),
+                        ),
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      input("Calories", calController,
+                          type: TextInputType.number),
+
+                      input("Protein (g)", proteinController,
+                          type: TextInputType.number),
+
+                      input("Fat (g)", fatController,
+                          type: TextInputType.number),
+
+                      input("Carbs (g)", carbController,
+                          type: TextInputType.number),
+
+                      const SizedBox(height: 10),
+
+                      const Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          "Vi chất dinh dưỡng",
+                          style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold),
+                        ),
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      input("Calcium", calciumController,
+                          type: TextInputType.number),
+
+                      input("Iron", ironController,
+                          type: TextInputType.number),
+
+                      input("Zinc", zincController,
+                          type: TextInputType.number),
+
+                      input("Sodium", sodiumController,
+                          type: TextInputType.number),
+
+                      input("Magnesium", magnesiumController,
+                          type: TextInputType.number),
+
+                      input("Vitamin A", vitaminAController,
+                          type: TextInputType.number),
+
+                      input("Potassium", potassiumController,
+                          type: TextInputType.number),
+
+                      input("MUFA + PUFA", mufaController,
+                          type: TextInputType.number),
+
+                      const SizedBox(height: 20),
+
+                      GestureDetector(
+                        onTap: saveFood,
+
+                        child: Container(
+                          height: 50,
+                          width: double.infinity,
+
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [
+                                Color(0xFF79EEF2),
+                                Color(0xFF78F09C),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(25),
+                          ),
+
+                          alignment: Alignment.center,
+
+                          child: const Text(
+                            "LƯU MÓN ĂN",
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 30)
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
         ),

@@ -1,8 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../../models/Food.dart';
+import '../../component/FoodItemCard.dart';
+import '../FoodDetailScreen.dart';
 import 'FoodFormScreen.dart';
-import '../../screens/SearchFoodScreen.dart';
 
 class FoodManagementScreen extends StatefulWidget {
   const FoodManagementScreen({super.key});
@@ -22,6 +23,11 @@ class _FoodManagementScreenState extends State<FoodManagementScreen> {
   double fabX = 300;
   double fabY = 450;
 
+  /// FIX: biến search
+  bool isSearching = false;
+  TextEditingController searchController = TextEditingController();
+  List<Food> filteredFoods = [];
+
   @override
   void initState() {
     super.initState();
@@ -36,6 +42,9 @@ class _FoodManagementScreenState extends State<FoodManagementScreen> {
     foods = snapshot.docs
         .map((e) => Food.fromMap(e.data(), e.id))
         .toList();
+
+    /// FIX: ban đầu hiển thị toàn bộ
+    filteredFoods = foods;
 
     setState(() {
       loading = false;
@@ -52,20 +61,39 @@ class _FoodManagementScreenState extends State<FoodManagementScreen> {
     loadFoods();
   }
 
+  /// FIX: search trong danh sách
+  void searchFood(String keyword) {
+
+    final value = keyword.toLowerCase();
+
+    setState(() {
+
+      filteredFoods = foods.where((food) {
+
+        return food.name.toLowerCase().contains(value) ||
+            (food.englishName ?? "").toLowerCase().contains(value);
+
+      }).toList();
+
+      currentPage = 0;
+
+    });
+  }
+
   List<Food> get paginatedFoods {
 
     int start = currentPage * pageSize;
     int end = start + pageSize;
 
-    if (start >= foods.length) return [];
+    if (start >= filteredFoods.length) return [];
 
-    if (end > foods.length) end = foods.length;
+    if (end > filteredFoods.length) end = filteredFoods.length;
 
-    return foods.sublist(start, end);
+    return filteredFoods.sublist(start, end);
   }
 
   int get totalPages =>
-      (foods.length / pageSize).ceil();
+      (filteredFoods.length / pageSize).ceil();
 
   @override
   Widget build(BuildContext context) {
@@ -102,8 +130,30 @@ class _FoodManagementScreenState extends State<FoodManagementScreen> {
                           child: const Icon(Icons.chevron_left, size: 28),
                         ),
 
-                        const Expanded(
-                          child: Center(
+                        const SizedBox(width: 10),
+
+                        /// FIX: khi search thì hiện input
+                        Expanded(
+                          child: isSearching
+                              ? TextField(
+
+                            controller: searchController,
+                            autofocus: true,
+                            onChanged: searchFood,
+
+                            decoration: InputDecoration(
+                              hintText: "Tìm món ăn...",
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(20),
+                                borderSide: BorderSide.none,
+                              ),
+                              filled: true,
+                              fillColor: Colors.white,
+                              contentPadding:
+                              const EdgeInsets.symmetric(horizontal: 16),
+                            ),
+                          )
+                              : const Center(
                             child: Text(
                               "Quản lý món ăn",
                               style: TextStyle(
@@ -114,19 +164,35 @@ class _FoodManagementScreenState extends State<FoodManagementScreen> {
                           ),
                         ),
 
-                        /// SEARCH BUTTON
+                        const SizedBox(width: 10),
+
+                        /// FIX: icon search toggle
                         GestureDetector(
+
                           onTap: () {
 
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const SearchFoodScreen(),
-                              ),
-                            );
+                            setState(() {
+
+                              if (isSearching) {
+
+                                isSearching = false;
+                                searchController.clear();
+                                filteredFoods = foods;
+
+                              } else {
+
+                                isSearching = true;
+
+                              }
+
+                            });
 
                           },
-                          child: const Icon(Icons.search, size: 26),
+
+                          child: Icon(
+                            isSearching ? Icons.close : Icons.search,
+                            size: 26,
+                          ),
                         ),
 
                       ],
@@ -138,110 +204,91 @@ class _FoodManagementScreenState extends State<FoodManagementScreen> {
                   /// LIST FOOD
                   Expanded(
                     child: loading
-                        ? const Center(
-                        child: CircularProgressIndicator())
+                        ? const Center(child: CircularProgressIndicator())
                         : ListView.builder(
                       padding: const EdgeInsets.all(12),
                       itemCount: paginatedFoods.length,
+
                       itemBuilder: (context, index) {
 
                         final food = paginatedFoods[index];
 
-                        return Card(
-                          elevation: 3,
-                          margin:
-                          const EdgeInsets.only(bottom: 12),
+                        return FoodItemCard(
 
-                          shape: RoundedRectangleBorder(
-                            borderRadius:
-                            BorderRadius.circular(12),
-                          ),
+                          id: food.id,
+                          name: food.name,
+                          image: food.image,
+                          calories: food.calories,
 
-                          child: ListTile(
-
-                            leading: ClipRRect(
-                              borderRadius:
-                              BorderRadius.circular(8),
-
-                              child: SizedBox(
-                                width: 60,
-                                height: 60,
-                                child: food.image != null
-                                    ? Image.network(
-                                  food.image!,
-                                  fit: BoxFit.cover,
-                                )
-                                    : const Icon(Icons.fastfood),
+                          /// mở trang chi tiết
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => FoodDetailScreen(foodId: food.id),
                               ),
+                            );
+                          },
+
+                          /// menu edit / delete
+                          trailing: PopupMenuButton<int>(
+
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
 
-                            title: Text(
-                              food.name,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold),
-                            ),
+                            itemBuilder: (context) => [
 
-                            subtitle: Text(
-                                "${food.calories.toStringAsFixed(0)} cal"),
-
-                            trailing: PopupMenuButton<int>(
-
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                              const PopupMenuItem(
+                                value: 1,
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.edit),
+                                    SizedBox(width: 10),
+                                    Text("Chỉnh sửa"),
+                                  ],
+                                ),
                               ),
 
-                              itemBuilder: (context) => [
-
-                                const PopupMenuItem(
-                                  value: 1,
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.edit),
-                                      SizedBox(width: 10),
-                                      Text("Chỉnh sửa"),
-                                    ],
-                                  ),
-                                ),
-
-                                const PopupMenuItem(
-                                  value: 2,
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.delete),
-                                      SizedBox(width: 10),
-                                      Text(
-                                        "Xóa",
-                                        style: TextStyle(color: Colors.red),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-
-                              ],
-
-                              onSelected: (value) {
-
-                                if (value == 1) {
-
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => FoodFormScreen(food: food),
+                              const PopupMenuItem(
+                                value: 2,
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.delete),
+                                    SizedBox(width: 10),
+                                    Text(
+                                      "Xóa",
+                                      style: TextStyle(color: Colors.red),
                                     ),
-                                  ).then((_) => loadFoods());
+                                  ],
+                                ),
+                              ),
 
-                                }
+                            ],
 
-                                if (value == 2) {
+                            onSelected: (value) {
 
-                                  deleteFood(food.id);
+                              if (value == 1) {
 
-                                }
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => FoodFormScreen(food: food),
+                                  ),
+                                ).then((_) => loadFoods());
 
-                              },
+                              }
 
-                              child: const Icon(Icons.more_vert),
-                            ),
+                              if (value == 2) {
+
+                                deleteFood(food.id);
+
+                              }
+
+                            },
+
+                            child: const Icon(Icons.more_vert),
+
                           ),
                         );
                       },
@@ -296,7 +343,7 @@ class _FoodManagementScreenState extends State<FoodManagementScreen> {
             ),
           ),
 
-          /// FLOAT BUTTON giống Home
+          /// FLOAT BUTTON
           Positioned(
             left: fabX,
             top: fabY,
