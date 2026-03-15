@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../component/FoodItemCard.dart';
 import '../models/Food.dart';
 import '../repository/FoodRepository.dart';
 import '../utils/notifier.dart';
@@ -210,54 +211,34 @@ class _SearchFoodScreenState extends State<SearchFoodScreen> {
   }
   // Hiển thị 1 món ăn
   Widget buildFoodItem(Food food) {
-    return Card(
-      elevation: 3,
-      margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: ListTile(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => FoodDetailScreen(
-                foodId: food.id,
-              ),
-            ),
-          );
-        },
-        leading: ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: SizedBox(
-            width: 60,
-            height: 60,
-            child: (food.image != null && food.image!.isNotEmpty)
-                ? Image.network(
-              food.image!,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) =>
-                  Image.asset(
-                    "assets/images/default_food.png",
-                    fit: BoxFit.cover,
-                  ),
-            )
-                : Image.asset(
-              "assets/images/default_food.png",
-              fit: BoxFit.cover,
-            ),
+
+    return FoodItemCard(
+
+      id: food.id,
+      name: food.name,
+      image: food.image,
+      calories: food.calories,
+
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => FoodDetailScreen(foodId: food.id),
           ),
+        );
+      },
+
+      /// FIX: dùng trailing thay vì onAdd
+      trailing: IconButton(
+        icon: const Icon(
+          Icons.add_circle,
+          color: Colors.green,
         ),
-        title: Text(
-          food.name,
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        subtitle: Text("${food.calories.toStringAsFixed(0)} cal"),
-        trailing: IconButton(
-          icon: const Icon(Icons.add_circle, color: Colors.green),
-          onPressed: () => showMealPickerDialog(food),
-        ),
+        onPressed: () {
+          showMealPickerDialog(food);
+        },
       ),
     );
+
   }
 }

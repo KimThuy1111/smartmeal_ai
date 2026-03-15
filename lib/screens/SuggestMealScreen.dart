@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:smartmeal_ai/utils/notifier.dart';
 import '../component/BackgroundGradient.dart';
+import '../component/FoodItemCard.dart';
 import '../component/Footer.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../models/Food.dart';
 import '../models/SuggestedMenu.dart';
 import 'FoodDetailScreen.dart';
 
@@ -314,10 +316,32 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
     );
 
   }
+  // Hàm thêm món ăn vào nhật kí
+  Future<void> addFoodToDiary(String foodId, String meal) async {
 
-  /// ====================================================
-  /// UI
-  /// ====================================================
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) return;
+
+    await FirebaseFirestore.instance.collection("food_diary").add({
+
+      "userId": user.uid,
+
+      /// FIX: lưu id món ăn
+      "foodId": foodId,
+
+      "meal": meal,
+
+      "date": today,
+
+      "createdAt": FieldValue.serverTimestamp(),
+
+    });
+
+    Notifier.showNotify(context, "Thêm vào nhật ký thành công");
+  }
+
+  //UI
 
   @override
   Widget build(BuildContext context) {
@@ -373,9 +397,9 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
 
                       const SizedBox(height:20),
 
-                      buildMealSection("Bữa Sáng", menu?["Breakfast"] ?? []),
-                      buildMealSection("Bữa Trưa", menu?["Lunch"] ?? []),
-                      buildMealSection("Bữa Tối", menu?["Dinner"] ?? []),
+                      buildMealSection("Bữa Sáng", menu?["Breakfast"] ?? [], "breakfast"),
+                      buildMealSection("Bữa Trưa", menu?["Lunch"] ?? [], "lunch"),
+                      buildMealSection("Bữa Tối", menu?["Dinner"] ?? [], "dinner"),
 
                       const SizedBox(height:30),
 
@@ -425,7 +449,7 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
     );
   }
 
-  Widget buildMealSection(String title, List foods){
+  Widget buildMealSection(String title, List foods, String meal){
 
     if(foods.isEmpty) return const SizedBox();
 
@@ -452,28 +476,31 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
           final calories = food["calories"];
           final id = food["id"];
 
-          return Card(
-            child: ListTile(
+          return FoodItemCard(
 
-              onTap: (){
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => FoodDetailScreen(foodId: id)
-                  ),
-                );
-              },
+            id: id,
+            name: name,
+            image: image,
+            calories: calories.toDouble(),
 
-              leading: Image.network(
-                image,
-                width:60,
-                height:60,
-                fit: BoxFit.cover,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => FoodDetailScreen(foodId: id),
+                ),
+              );
+            },
+
+            /// FIX: icon thêm món
+            trailing: IconButton(
+              icon: const Icon(
+                Icons.add_circle,
+                color: Colors.green,
               ),
-
-              title: Text(name),
-              subtitle: Text("$calories cal"),
-
+              onPressed: () {
+                addFoodToDiary(id, meal);
+              },
             ),
           );
 
