@@ -27,8 +27,9 @@ class _HomeScreenState extends State<HomeScreen> {
   double carbs = 0;
   double fat = 0;
 
-  double water = 0;
-  double waterGoal = 2000;
+  double eatenProtein = 0;
+  double eatenCarbs = 0;
+  double eatenFat = 0;
 
   List<String> breakfastFoods = [];
   List<String> lunchFoods = [];
@@ -143,6 +144,10 @@ class _HomeScreenState extends State<HomeScreen> {
     lunchCal = 0;
     dinnerCal = 0;
 
+    eatenProtein = 0;
+    eatenCarbs = 0;
+    eatenFat = 0;
+
     for (var doc in snapshot.docs) {
 
       String foodId = doc["foodId"];
@@ -157,7 +162,15 @@ class _HomeScreenState extends State<HomeScreen> {
       if (food == null) continue;
 
       String foodName = food["name"] ?? "";
+
       double cal = (food["calories"] ?? 0).toDouble();
+      double p = (food["protein"] ?? 0).toDouble();
+      double c = (food["carbs"] ?? 0).toDouble();
+      double f = (food["fat"] ?? 0).toDouble();
+
+      eatenProtein += p;
+      eatenCarbs += c;
+      eatenFat += f;
 
       if (meal == "breakfast") {
         breakfastFoods.add(foodName);
@@ -347,26 +360,21 @@ class _HomeScreenState extends State<HomeScreen> {
           Positioned(
             left: 0,
             top: 0,
-            child: macroBar("Carbs", carbs, carbGoal),
+            child: macroBar("Carbs", eatenCarbs, carbs),
           ),
 
           Positioned(
             right: 0,
             top: 30,
-            child: macroBar("Protein", protein, proteinGoal),
+            child: macroBar("Protein", eatenProtein, protein),
           ),
 
           Positioned(
             left: 0,
             bottom: 30,
-            child: macroBar("Fat", fat, fatGoal),
+            child: macroBar("Fat", eatenFat, fat),
           ),
 
-          Positioned(
-            right: 0,
-            bottom: 0,
-            child: macroBar("Water", water, waterGoal, unit: "ml"),
-          ),
         ],
       ),
     );

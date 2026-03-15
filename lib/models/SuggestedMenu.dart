@@ -2,9 +2,7 @@ class SuggestedMenu {
 
   final String userId;
   final String date;
-
   final Map<String, List<String>> menu;
-
   final bool? liked;
 
   SuggestedMenu({
@@ -22,5 +20,22 @@ class SuggestedMenu {
       "liked": liked,
       "createdAt": DateTime.now(),
     };
+  }
+
+  /// FIX: đọc dữ liệu từ firestore
+  factory SuggestedMenu.fromMap(Map<String, dynamic> data) {
+
+    Map<String,List<String>> parsedMenu = {};
+
+    data["menu"].forEach((key,value){
+      parsedMenu[key] = List<String>.from(value);
+    });
+
+    return SuggestedMenu(
+      userId: data["userId"],
+      date: data["date"],
+      menu: parsedMenu,
+      liked: data["liked"],
+    );
   }
 }
