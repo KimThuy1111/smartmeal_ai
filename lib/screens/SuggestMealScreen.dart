@@ -55,9 +55,7 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
     });
   }
 
-  /// ====================================================
-  /// LOAD MENU TỪ FIRESTORE (ƯU TIÊN)
-  /// ====================================================
+  //Load menu
 
   Future<void> loadMenuFromFirestore() async {
 
@@ -221,8 +219,8 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
       /// CALL FAST API
 
       final response = await http.post(
-        Uri.parse("https://smartmeal-ai-wp3g.onrender.com/recommend"),
-        // Uri.parse("http://10.0.2.2:8000/recommend"),
+        // Uri.parse("https://smartmeal-ai-wp3g.onrender.com/recommend"),
+        Uri.parse("http://10.0.2.2:8000/recommend"),
         headers: {"Content-Type":"application/json"},
         body: jsonEncode({
           "age": userData["age"],
