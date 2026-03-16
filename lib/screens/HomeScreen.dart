@@ -85,8 +85,8 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     //Chưa có gọi api
     final response = await http.post(
-      Uri.parse("https://smartmeal-ai-wp3g.onrender.com/recommend"),
-      // Uri.parse("http://10.0.2.2:8000/recommend"),
+      // Uri.parse("https://smartmeal-ai-wp3g.onrender.com/recommend"),
+      Uri.parse("http://10.0.2.2:8000/recommend"),
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({
         "age": data["age"],

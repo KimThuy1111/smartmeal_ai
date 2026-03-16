@@ -5,6 +5,7 @@ import 'package:smartmeal_ai/screens/admin/UserManagementScreen.dart';
 import '../UserProfileScreen.dart';
 import 'FoodManagementScreen.dart';
 import '../LoginScreen.dart';
+import 'MenuFeedbackScreen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -342,6 +343,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     context,
                     MaterialPageRoute(
                       builder: (_) => const UserManagementScreen(),
+                    ),
+                  );
+                },
+              ),
+
+              const SizedBox(height: 20),
+
+              menuCard(
+                title: "Đánh giá thực đơn AI",
+                icon: Icons.analytics,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const MenuFeedbackScreen(),
                     ),
                   );
                 },
