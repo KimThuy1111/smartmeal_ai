@@ -1,6 +1,6 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '../controllers/UserController.dart';
 import '../models/Role.dart';
 import '../models/User.dart';
 import '../utils/notifier.dart';
@@ -11,7 +11,7 @@ class RegisterStep2Screen extends StatefulWidget {
   final String email;
   final String name;
   final String avatar;
-  
+
   const RegisterStep2Screen({
     super.key,
     required this.uid,
@@ -19,33 +19,33 @@ class RegisterStep2Screen extends StatefulWidget {
     required this.name,
     required this.avatar,
   });
-  
+
   @override
   State<RegisterStep2Screen> createState() => _RegisterStep2ScreenState();
 }
 
 class _RegisterStep2ScreenState extends State<RegisterStep2Screen> {
-  // Lấy dữ liệu từ textField
-  final ageController = TextEditingController();
-  final weightController = TextEditingController();
-  final heightController = TextEditingController();
-  String gender = "Nam";
-  String activity = "Ít vận động";
-  String goal = "Duy trì cân nặng";
-  List<String> selectedDiseases = [];
+  final UserController _userController = UserController();
 
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final TextEditingController ageController = TextEditingController();
+  final TextEditingController weightController = TextEditingController();
+  final TextEditingController heightController = TextEditingController();
 
-  // Hàm lưu user vào firestore
-  void saveUser() async {
+  String gender = 'Nam';
+  String activity = 'Ít vận động';
+  String goal = 'Duy trì cân nặng';
+
+  /// Kiểm tra dữ liệu, tạo hồ sơ người dùng và lưu vào Firestore.
+  Future<void> _saveUser() async {
     try {
-      // Kiểm tra dữ liệu
-      if (ageController.text.isEmpty || weightController.text.isEmpty || heightController.text.isEmpty) {
-        Notifier.showError(context, "Vui lòng nhập đầy đủ thông tin!!!");
+      if (ageController.text.isEmpty ||
+          weightController.text.isEmpty ||
+          heightController.text.isEmpty) {
+        Notifier.showError(context, 'Vui lòng nhập đầy đủ thông tin!!!');
         return;
       }
 
-      User user = User(
+      final user = User(
         uid: widget.uid,
         email: widget.email,
         name: widget.name,
@@ -55,52 +55,38 @@ class _RegisterStep2ScreenState extends State<RegisterStep2Screen> {
         gender: gender,
         activity: activity,
         goal: goal,
-        diseases: selectedDiseases,
         avatar: widget.avatar.isEmpty
-            ? "https://cdn-icons-png.flaticon.com/512/149/149071.png"
+            ? 'https://cdn-icons-png.flaticon.com/512/149/149071.png'
             : widget.avatar,
         role: Role.user,
+        createdAt: DateTime.now(),
       );
 
-      await _db.collection("users").doc(widget.uid).set(user.toMap());
-      Notifier.showNotify(context, "Đăng ký thành công!!!");
+      await _userController.createUserProfile(
+        uid: widget.uid,
+        data: user.toMap(),
+      );
 
-      // Chuyển về Login và xóa toàn bộ stack trước đó
+      Notifier.showNotify(context, 'Đăng ký thành công!!!');
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (_) => const HomeScreen()),
-            (route) => false,
+        (route) => false,
       );
     } catch (e) {
-      Notifier.showError(context, "Lỗi: ${e.toString()}");
+      Notifier.showError(context, 'Lỗi: ${e.toString()}');
     }
   }
 
-  // Tạo checkbox bệnh
-  Widget buildCheckbox(String disease) {
-    return CheckboxListTile(
-      value: selectedDiseases.contains(disease),
-      title: Text(disease),
-      onChanged: (value) {
-        setState(() {
-          if (value == true) {
-            selectedDiseases.add(disease);
-          }else {
-            selectedDiseases.remove(disease);
-          }
-        });
-      },
-    );
-  }
-
-  // UI
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(colors: [Color(0xFFE4FFE4), Colors.white],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
+          gradient: LinearGradient(
+            colors: [Color(0xFFE4FFE4), Colors.white],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
           ),
         ),
         child: SingleChildScrollView(
@@ -108,130 +94,89 @@ class _RegisterStep2ScreenState extends State<RegisterStep2Screen> {
           child: Column(
             children: [
               const SizedBox(height: 20),
-              Image.asset("assets/images/logo.png",height: 100,),
+              Image.asset('assets/images/logo.png', height: 100),
               const SizedBox(height: 5),
-
               const Text(
-                "CALO",
+                'CALO',
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 10),
-
               const Text(
-                "THÔNG TIN CÁ NHÂN",
+                'THÔNG TIN CÁ NHÂN',
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF333333),
                 ),
               ),
               const SizedBox(height: 30),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      "Giới tính",
-                      style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold),
-                    ),
+                  const Text(
+                    'Giới tính',
+                    style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(width: 15),
-                  Radio(
-                    activeColor: const Color(0xFF68E3B5),
-                    value: "Nam",
+                  Radio<String>(
+                    value: 'Nam',
                     groupValue: gender,
                     onChanged: (g) => setState(() => gender = g!),
                   ),
-                  const Text("Nam"),
+                  const Text('Nam'),
                   const SizedBox(width: 20),
-
-                  Radio(
-                    activeColor: const Color(0xFF68E3B5),
-                    value: "Nữ",
+                  Radio<String>(
+                    value: 'Nữ',
                     groupValue: gender,
                     onChanged: (g) => setState(() => gender = g!),
                   ),
-                  const Text("Nữ"),
+                  const Text('Nữ'),
                 ],
               ),
               const SizedBox(height: 16),
-
-              buildInput("Tuổi", ageController),
+              _buildInput('Tuổi', ageController),
               const SizedBox(height: 16),
-
-              buildInput("Cân nặng (kg)", weightController),
+              _buildInput('Cân nặng (kg)', weightController),
               const SizedBox(height: 16),
-
-              buildInput("Chiều cao (cm)", heightController),
-              const SizedBox(height: 16),
-
-              const Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  "Mức độ vận động",
-                  style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold),
-                ),
+              _buildInput('Chiều cao (cm)', heightController),
+              const SizedBox(height: 20),
+              _buildDropdown(
+                activity,
+                const [
+                  'Ít vận động',
+                  'Vận động nhẹ',
+                  'Vận động vừa phải',
+                  'Vận động nhiều',
+                  'Vận động cực nhiều',
+                ],
+                (v) => setState(() => activity = v),
               ),
-              const SizedBox(height: 8),
-
-              buildDropdown(activity, ["Ít vận động", "Vận động nhẹ", "Vận động vừa phải", "Vận động nhiều", "Vận động rất nhiều"], (a) => setState(() => activity = a)),
-              const SizedBox(height: 24),
-
-              const Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  "Mục tiêu cân nặng",
-                  style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold),
-                ),
+              const SizedBox(height: 20),
+              _buildDropdown(
+                goal,
+                const ['Giảm cân', 'Duy trì cân nặng', 'Tăng cân'],
+                (v) => setState(() => goal = v),
               ),
-              const SizedBox(height: 8),
-
-              buildDropdown(goal, ["Giảm cân", "Duy trì cân nặng", "Tăng cân"], (g) => setState(() => goal = g)),
-              const SizedBox(height: 24),
-
-              const Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  "Bệnh nền (nếu có)",
-                  style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold),
-                ),
-              ),
-              const SizedBox(height: 10),
-              buildCheckbox("Tăng huyết áp"),
-              buildCheckbox("Bệnh tim"),
-              buildCheckbox("Bệnh thận"),
-              buildCheckbox("Tiểu đường"),
-              buildCheckbox("Mụn trứng cá"),
-
-              const SizedBox(height: 30),
-
+              const SizedBox(height: 20),
               GestureDetector(
-                onTap: saveUser,
+                onTap: _saveUser,
                 child: Container(
                   height: 50,
                   width: double.infinity,
+                  alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(colors: [Color(0xFF79EEF2), Color(0xFF78F09C),],),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF79EEF2), Color(0xFF78F09C)],
+                    ),
                     borderRadius: BorderRadius.circular(25),
                   ),
-                  alignment: Alignment.center,
-                  child: const Text("Tiếp tục",
+                  child: const Text(
+                    'Tiếp tục',
                     style: TextStyle(
                       fontSize: 20,
-                      fontWeight:  FontWeight.bold,
-                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
@@ -239,57 +184,32 @@ class _RegisterStep2ScreenState extends State<RegisterStep2Screen> {
               const SizedBox(height: 30),
             ],
           ),
-        )
-
-      ),
-    );
-  }
-  
-  Widget buildInput(String hint, TextEditingController controller){
-    return Container(
-      height: 50,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: const Color(0xFFE0F2F1)),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      alignment: Alignment.center,
-      child: TextField(
-        controller: controller,
-        keyboardType: TextInputType.number,
-        decoration: InputDecoration(
-          border: InputBorder.none,
-          hintText: hint,
         ),
       ),
     );
   }
 
-  Widget buildDropdown(
-      String value,
-      List<String> items,
-      Function(String) onChanged) {
-    return Container(
-      height: 50,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: const Color(0xFFE0F2F1)),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: value,
-          isExpanded: true,
-          items: items.map((e) =>
-              DropdownMenuItem(
-                value: e,
-                child: Text(e),
-              )).toList(),
-          onChanged: (v) => onChanged(v!),
-        ),
-      ),
+  /// Tạo ô nhập số cho thông tin tuổi, cân nặng và chiều cao.
+  Widget _buildInput(String hint, TextEditingController controller) {
+    return TextField(
+      controller: controller,
+      keyboardType: TextInputType.number,
+      decoration: InputDecoration(hintText: hint),
+    );
+  }
+
+  /// Tạo dropdown dùng chung cho mức vận động và mục tiêu dinh dưỡng.
+  Widget _buildDropdown(
+    String value,
+    List<String> items,
+    Function(String) onChanged,
+  ) {
+    return DropdownButtonFormField<String>(
+      value: value,
+      items: items
+          .map((e) => DropdownMenuItem<String>(value: e, child: Text(e)))
+          .toList(),
+      onChanged: (v) => onChanged(v!),
     );
   }
 }

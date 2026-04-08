@@ -1,18 +1,17 @@
-import 'dart:convert';
-import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:smartmeal_ai/utils/notifier.dart';
-import '../component/BackgroundGradient.dart';
-import '../component/FoodItemCard.dart';
-import '../component/Footer.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../models/Food.dart';
+import 'package:flutter/material.dart';
+
+import '../controllers/SuggestController.dart';
+import '../controllers/UserController.dart';
 import '../models/SuggestedMenu.dart';
+import '../utils/notifier.dart';
+import '../widgets/BackgroundGradient.dart';
+import '../widgets/FoodItemCard.dart';
+import '../widgets/Footer.dart';
 import 'FoodDetailScreen.dart';
 
 class SuggestMealScreen extends StatefulWidget {
-
   final String? addedFoodId;
 
   const SuggestMealScreen({super.key, this.addedFoodId});
@@ -22,512 +21,354 @@ class SuggestMealScreen extends StatefulWidget {
 }
 
 class _SuggestMealScreenState extends State<SuggestMealScreen> {
+  final SuggestController _controller = SuggestController();
+  final UserController _userController = UserController();
 
-  Map<String, List<Map<String,dynamic>>>? menu;
-  Map<String,dynamic>? nutrition;
+  Map<String, List<Map<String, dynamic>>>? menu;
+  Map<String, dynamic>? nutrition;
 
   bool isLoading = false;
   bool? liked;
+  String? currentMenuDocId;
 
-  double breakfastCalories = 0;
-  double lunchCalories = 0;
-  double dinnerCalories = 0;
-
-  String today = DateTime.now().toString().substring(0,10);
+  Map<int, Map<String, dynamic>> foodCache = {};
+  late DateTime selectedDate;
+  late String today;
 
   @override
   void initState() {
     super.initState();
-    loadMenuFromFirestore().then((_) {
-
-      /// nếu có món vừa thêm
-      if(widget.addedFoodId != null){
-
-        bool exists = isFoodInMenu(widget.addedFoodId!);
-
-        /// nếu không có trong menu → gọi lại API
-        if(!exists){
-          fetchMenu();
-        }
-
-      }
-
-    });
+    selectedDate = DateTime.now();
+    today = selectedDate.toString().substring(0, 10);
+    _initData();
   }
 
-  //Load menu
-
-  Future<void> loadMenuFromFirestore() async {
-
-    final user = FirebaseAuth.instance.currentUser;
-    if(user == null) return;
-
-    setState(() => isLoading = true);
-
-    /// FIX: đọc doc theo user + date
-    final doc = await FirebaseFirestore.instance
-        .collection("suggested_menus")
-        .doc("${user.uid}_$today")
-        .get();
-
-    /// FIX: nếu chưa có menu → gọi API
-    if(!doc.exists){
-      await fetchMenu();
+  // Khởi tạo dữ liệu thực đơn từ cache, Firestore hoặc gọi API khi cần.
+  Future<void> _initData() async {
+    if (_controller.isCacheValid(today)) {
+      setState(() {
+        menu = _controller.cachedMenu;
+      });
       return;
     }
 
-    /// parse model
-    final suggestedMenu =
-    SuggestedMenu.fromMap(doc.data()!);
+    await _loadMenuFromFirestore();
 
-    liked = suggestedMenu.liked;
+    if (menu == null) {
+      await _fetchMenu();
+      return;
+    }
 
-    /// load food chi tiết
-    Map<String,List<Map<String,dynamic>>> loadedMenu = {
-      "Breakfast": [],
-      "Lunch": [],
-      "Dinner": []
+    if (widget.addedFoodId != null && menu != null) {
+      if (!_isFoodInMenu(widget.addedFoodId!)) {
+        await _fetchMenu();
+      }
+    }
+  }
+
+  // Tải thực đơn gần nhất trong ngày của người dùng từ Firestore.
+  Future<void> _loadMenuFromFirestore() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return;
+    }
+
+    setState(() => isLoading = true);
+
+    final snapshot = await FirebaseFirestore.instance
+        .collection('suggested_menus')
+        .where('userId', isEqualTo: user.uid)
+        .where('date', isEqualTo: today)
+        .orderBy('createdAt', descending: true)
+        .limit(1)
+        .get();
+
+    if (snapshot.docs.isEmpty) {
+      setState(() {
+        isLoading = false;
+        liked = null;
+        currentMenuDocId = null;
+      });
+      return;
+    }
+
+    final doc = snapshot.docs.first;
+    currentMenuDocId = doc.id;
+    
+    final Map<String, List<Map<String, dynamic>>> loadedMenu = {
+      'Breakfast': [],
+      'Lunch': [],
+      'Dinner': [],
     };
 
-    for(String meal in suggestedMenu.menu.keys){
+    final suggested = SuggestedMenu.fromMap(doc.data());
 
-      List<String> ids = suggestedMenu.menu[meal]!;
-
-      /// OPTIMIZE: load song song
-      List<Future<DocumentSnapshot>> futures = ids.map((id){
-        return FirebaseFirestore.instance
-            .collection("food")
-            .doc(id)
-            .get();
+    for (final String meal in suggested.menu.keys) {
+      final futures = suggested.menu[meal]!.map((id) {
+        return FirebaseFirestore.instance.collection('food').doc(id).get();
       }).toList();
 
       final docs = await Future.wait(futures);
 
-      for(var d in docs){
+      for (final d in docs) {
+        if (!d.exists) {
+          continue;
+        }
 
-        if(!d.exists) continue;
-
-        final data = d.data() as Map<String,dynamic>;
-        data["id"] = d.id;
-
+        final data = d.data()!;
+        data['id'] = d.id;
         loadedMenu[meal]!.add(data);
       }
+    }
 
+    _controller.setCache(loadedMenu, today);
+
+    if (!mounted) {
+      return;
     }
 
     setState(() {
       menu = loadedMenu;
+      liked = suggested.liked;
       isLoading = false;
     });
-
-  }
-  bool isFoodInMenu(String foodId){
-
-    if(menu == null) return false;
-
-    for(var meal in menu!.values){
-
-      for(var food in meal){
-
-        if(food["id"] == foodId){
-          return true;
-        }
-
-      }
-
-    }
-
-    return false;
   }
 
-  /// ====================================================
-  /// LOAD CALORIES ĐÃ ĂN TRONG NGÀY
-  /// ====================================================
-
-  Future<void> loadTodayCalories() async {
-
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
-    final snapshot = await FirebaseFirestore.instance
-        .collection("food_diary")
-        .where("userId", isEqualTo: user.uid)
-        .where("date", isEqualTo: today)
-        .get();
-
-    breakfastCalories = 0;
-    lunchCalories = 0;
-    dinnerCalories = 0;
-
-    /// OPTIMIZE: load food song song
-
-    List<Future<DocumentSnapshot>> futures = [];
-
-    for (var doc in snapshot.docs) {
-
-      futures.add(
-          FirebaseFirestore.instance
-              .collection("food")
-              .doc(doc["foodId"])
-              .get()
-      );
-
-    }
-
-    final foodDocs = await Future.wait(futures);
-
-    for(int i=0;i<foodDocs.length;i++){
-
-      final meal = snapshot.docs[i]["meal"];
-      final data = foodDocs[i].data() as Map<String,dynamic>?;
-
-      if(data == null) continue;
-
-      final cal = (data["calories"] ?? 0).toDouble();
-
-      if (meal == "breakfast") breakfastCalories += cal;
-      if (meal == "lunch") lunchCalories += cal;
-      if (meal == "dinner") dinnerCalories += cal;
-
-    }
-
-  }
-
-  /// ====================================================
-  /// GỌI FAST API
-  /// ====================================================
-
-  Future<void> fetchMenu() async {
-
+  // Gọi API gợi ý thực đơn mới, map dữ liệu đầy đủ và lưu lại.
+  Future<void> _fetchMenu() async {
     setState(() => isLoading = true);
 
-    try {
+    final calories = await _controller.loadTodayCalories();
+    final recent = await _controller.loadRecentFoodHistory();
+    final userData = await _userController.getUserData();
+    final excludedFoods = await _controller.getExcludedFoods();
 
-      await loadTodayCalories();
+    final data = await _controller.fetchMenu(
+      userData!,
+      calories['breakfast'] ?? 0,
+      calories['lunch'] ?? 0,
+      calories['dinner'] ?? 0,
+      recent,
+      excludedFoods,
+    );
 
-      final user = FirebaseAuth.instance.currentUser;
-      if(user == null) return;
+    if (data.isEmpty) {
+      setState(() => isLoading = false);
+      return;
+    }
 
-      final userDoc = await FirebaseFirestore.instance
-          .collection("users")
-          .doc(user.uid)
-          .get();
+    final aiMenu = data['menu'];
+    final Map<String, List<Map<String, dynamic>>> fullMenu = {};
 
-      final userData = userDoc.data();
-      if(userData == null) return;
+    for (final String meal in ['Breakfast', 'Lunch', 'Dinner']) {
+      final List items = aiMenu[meal] ?? [];
+      final List<Map<String, dynamic>> foods = [];
 
-      /// CALL FAST API
+      for (final item in items) {
+        final snapshot = await FirebaseFirestore.instance
+            .collection('food')
+            .where('stt', isEqualTo: item['stt'])
+            .limit(1)
+            .get();
 
-      final response = await http.post(
-        // Uri.parse("https://smartmeal-ai-wp3g.onrender.com/recommend"),
-        Uri.parse("http://10.0.2.2:8000/recommend"),
-        headers: {"Content-Type":"application/json"},
-        body: jsonEncode({
-          "age": userData["age"],
-          "gender": userData["gender"],
-          "height": userData["height"],
-          "weight": userData["weight"],
-          "activity": userData["activity"],
-          "disease": userData["diseases"]?.isNotEmpty == true
-              ? userData["diseases"][0]
-              : "None",
-          "breakfast_cal": breakfastCalories,
-          "lunch_cal": lunchCalories,
-          "dinner_cal": dinnerCalories
-        }),
-      );
-
-      if(response.statusCode != 200){
-        print("API ERROR");
-        return;
-      }
-
-      final data = jsonDecode(response.body);
-
-      nutrition = data["nutrition"];
-
-      final aiMenu = data["menu"];
-
-      Map<String,List<Map<String,dynamic>>> fullMenu = {};
-
-      for(String meal in ["Breakfast","Lunch","Dinner"]){
-
-        List items = aiMenu[meal] ?? [];
-        List<Map<String,dynamic>> foods = [];
-
-        for(var item in items){
-
-          /// tìm food theo stt
-          final snapshot = await FirebaseFirestore.instance
-              .collection("food")
-              .where("stt", isEqualTo: item["stt"])
-              .limit(1)
-              .get();
-
-          if(snapshot.docs.isEmpty) continue;
-
-          final doc = snapshot.docs.first;
-          final foodData = doc.data();
-
-          foodData["id"] = doc.id;
-
-          foods.add(foodData);
+        if (snapshot.docs.isEmpty) {
+          continue;
         }
 
-        fullMenu[meal] = foods;
+        final doc = snapshot.docs.first;
+        final data = doc.data();
+        data['id'] = doc.id;
+        foods.add(data);
       }
 
-      /// lưu firestore
-      await saveSuggestedMenu(fullMenu);
-
-      setState(() {
-        menu = fullMenu;
-        liked = null;
-      });
-
-    } catch(e){
-      print(e);
+      fullMenu[meal] = foods;
     }
 
-    setState(() => isLoading = false);
-
-  }
-
-  /// ====================================================
-  /// LƯU MENU FIRESTORE
-  /// ====================================================
-
-  Future<void> saveSuggestedMenu(
-      Map<String,List<Map<String,dynamic>>> menu) async {
-
-    final user = FirebaseAuth.instance.currentUser;
-    if(user == null) return;
-
-    Map<String,List<String>> foodIds = {};
-
-    menu.forEach((meal,foods){
-
-      foodIds[meal] = foods
-          .map((f) => f["id"].toString())
-          .toList();
-
-    });
-
-    final suggestedMenu = SuggestedMenu(
-      userId: user.uid,
-      date: today,
-      menu: foodIds,
-      liked: null,
-    );
-
-    await FirebaseFirestore.instance
-        .collection("suggested_menus")
-        .doc("${user.uid}_$today")
-        .set(suggestedMenu.toMap());
-
-  }
-  // Kiểm tra xem menu có món k
-  bool hasMenuFood() {
-
-    if(menu == null) return false;
-
-    for(var meal in menu!.values){
-      if(meal.isNotEmpty){
-        return true;
-      }
+    final docId = await _controller.saveMenu(fullMenu);
+    if (docId != null) {
+      _controller.setCache(fullMenu, today);
     }
 
-    return false;
-  }
-  Future<void> rateMenu(bool like) async {
-
-    final user = FirebaseAuth.instance.currentUser;
-    if(user == null) return;
-
-    /// FIX: update trực tiếp docId (không cần query)
-
-    await FirebaseFirestore.instance
-        .collection("suggested_menus")
-        .doc("${user.uid}_$today")
-        .update({"liked": like});
+    if (!mounted) {
+      return;
+    }
 
     setState(() {
-      liked = like;
+      menu = fullMenu;
+      isLoading = false;
     });
-
-    Notifier.showNotify(
-        context,
-        like
-            ? "Cảm ơn bạn đã thích thực đơn hôm nay"
-            : "Cập nhật món ăn thành công"
-    );
-
   }
-  // Hàm thêm món ăn vào nhật kí
-  Future<void> addFoodToDiary(String foodId, String meal) async {
 
+  // Kiểm tra thực đơn hiện tại có đủ 3 bữa hay không.
+  bool _hasFullMeal() {
+    return menu != null &&
+        menu!['Breakfast']!.isNotEmpty &&
+        menu!['Lunch']!.isNotEmpty &&
+        menu!['Dinner']!.isNotEmpty;
+  }
+
+  // Kiểm tra thực đơn có ít nhất một món ăn.
+  bool _hasMenuFood() {
+    return menu != null && menu!.values.any((m) => m.isNotEmpty);
+  }
+
+  // Kiểm tra món ăn vừa thêm đã xuất hiện trong thực đơn hay chưa.
+  bool _isFoodInMenu(String id) {
+    return menu != null && menu!.values.any((m) => m.any((f) => f['id'] == id));
+  }
+
+  // Gửi đánh giá thích/không thích cho thực đơn đang hiển thị.
+  Future<void> _rateMenu(bool like) async {
+    if (currentMenuDocId == null) {
+      return;
+    }
+
+    await FirebaseFirestore.instance
+        .collection('suggested_menus')
+        .doc(currentMenuDocId)
+        .update({'liked': like});
+
+    setState(() => liked = like);
+    Notifier.showNotify(context, 'Đã gửi đánh giá');
+  }
+
+  // Thêm một món ăn từ thực đơn gợi ý vào nhật ký theo bữa.
+  Future<void> _addFood(String id, String meal) async {
     final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return;
+    }
 
-    if (user == null) return;
-
-    await FirebaseFirestore.instance.collection("food_diary").add({
-
-      "userId": user.uid,
-
-      /// FIX: lưu id món ăn
-      "foodId": foodId,
-
-      "meal": meal,
-
-      "date": today,
-
-      "createdAt": FieldValue.serverTimestamp(),
-
+    await FirebaseFirestore.instance.collection('food_diary').add({
+      'userId': user.uid,
+      'foodId': id,
+      'meal': meal,
+      'date': today,
+      'createdAt': FieldValue.serverTimestamp(),
     });
 
-    Notifier.showNotify(context, "Thêm vào nhật ký thành công");
+    Notifier.showNotify(context, 'Đã thêm vào nhật ký');
   }
 
-  //UI
+  // Điều hướng đến ngày trước đó
+  void _goToPreviousDay() {
+    setState(() {
+      selectedDate = selectedDate.subtract(const Duration(days: 1));
+      today = selectedDate.toString().substring(0, 10);
+      menu = null;
+      liked = null;
+      currentMenuDocId = null;
+    });
+    _loadMenuFromFirestore();
+  }
+
+  // Điều hướng đến ngày sau đó
+  void _goToNextDay() {
+    final now = DateTime.now();
+    if (selectedDate.isBefore(DateTime(now.year, now.month, now.day))) {
+      setState(() {
+        selectedDate = selectedDate.add(const Duration(days: 1));
+        today = selectedDate.toString().substring(0, 10);
+        menu = null;
+        liked = null;
+        currentMenuDocId = null;
+      });
+      _loadMenuFromFirestore();
+    }
+  }
+
+  // Kiểm tra xem có thể chuyển sang ngày sau không
+  bool _canGoToNextDay() {
+    final now = DateTime.now();
+    return selectedDate.isBefore(DateTime(now.year, now.month, now.day));
+  }
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
       bottomNavigationBar: const Footer(currentIndex: 2),
-
       body: BackgroundGradient(
         child: SafeArea(
           child: Column(
             children: [
-
-              Row(
-                children: [
-
-                  const Expanded(
-                    child: Center(
-                      child: Text(
-                        "Gợi ý thực đơn",
-                        style: TextStyle(
-                            fontSize:22,
-                            fontWeight: FontWeight.bold
-                        ),
+              // Header với nút điều hướng
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back_ios, size: 20),
+                      onPressed: _goToPreviousDay,
+                    ),
+                    Expanded(
+                      child: Column(
+                        children: [
+                          const Text(
+                            'Gợi ý thực đơn',
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            _formatDate(selectedDate),
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-
-                  IconButton(
-                    icon: const Icon(Icons.sync),
-                    onPressed: fetchMenu,
-                  )
-
-                ],
+                    IconButton(
+                      icon: const Icon(Icons.arrow_forward_ios, size: 20),
+                      onPressed: _canGoToNextDay() ? _goToNextDay : null,
+                    ),
+                  ],
+                ),
               ),
-
+              // Refresh button
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.sync),
+                      onPressed: _fetchMenu,
+                    ),
+                  ],
+                ),
+              ),
               Expanded(
-
                 child: isLoading
                     ? const Center(child: CircularProgressIndicator())
                     : menu == null
-                    ? const Center(child: Text("Không có dữ liệu"))
-                    : SingleChildScrollView(
-
-                  padding: const EdgeInsets.all(16),
-
-                  child: Column(
-                    children: [
-                      Text(
-                        "Dựa trên mục tiêu ${nutrition?["Calories"] ?? 0} Calo/ngày",
-                        style: const TextStyle(color: Colors.grey),
-                      ),
-                      const SizedBox(height:5),
-                      Text(
-                        "Các món ăn chỉ mang tính chất tham khảo!!!!",
-                        style: const TextStyle(color: Colors.red),
-                      ),
-
-                      const SizedBox(height:20),
-
-                      buildMealSection("Bữa Sáng", menu?["Breakfast"] ?? [], "breakfast"),
-                      buildMealSection("Bữa Trưa", menu?["Lunch"] ?? [], "lunch"),
-                      buildMealSection("Bữa Tối", menu?["Dinner"] ?? [], "dinner"),
-                      /// FIX: nếu không còn món gợi ý
-                      if(!hasMenuFood())
-                        const Padding(
-                          padding: EdgeInsets.only(top: 40),
-                          child: Column(
-                            children: [
-
-                              Icon(
-                                Icons.emoji_food_beverage,
-                                size: 60,
-                                color: Colors.green,
-                              ),
-
-                              SizedBox(height: 10),
-
-                              Text(
-                                "Hôm nay bạn đã ăn đủ calo 🎉",
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-
-                              SizedBox(height: 6),
-
-                              Text(
-                                "Không cần gợi ý thêm món ăn",
-                                style: TextStyle(
-                                  color: Colors.grey,
-                                ),
-                              ),
-
-                            ],
-                          ),
-                        ),
-
-                      const SizedBox(height:30),
-
-                      if(liked == null && hasMenuFood())
-                        Column(
-                          children: [
-
-                            const Text(
-                              "Bạn có thích danh sách món ăn này không?",
-                              textAlign: TextAlign.center,
-                            ),
-
-                            const SizedBox(height:10),
-
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
+                        ? const Center(child: Text('Không có dữ liệu'))
+                        : SingleChildScrollView(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
                               children: [
-
-                                ElevatedButton.icon(
-                                  icon: const Icon(Icons.thumb_up),
-                                  label: const Text("Thích"),
-                                  onPressed: () => rateMenu(true),
+                                const Text(
+                                  'Các món chỉ mang tính tham khảo',
+                                  style: TextStyle(color: Colors.red),
                                 ),
-
-                                const SizedBox(width:20),
-
-                                ElevatedButton.icon(
-                                  icon: const Icon(Icons.thumb_down),
-                                  label: const Text("Không thích"),
-                                  onPressed: () => rateMenu(false),
-                                ),
-
+                                _buildMeal('Bữa sáng', menu!['Breakfast']!, 'breakfast'),
+                                _buildMeal('Bữa trưa', menu!['Lunch']!, 'lunch'),
+                                _buildMeal('Bữa tối', menu!['Dinner']!, 'dinner'),
+                                if (!_hasMenuFood())
+                                  const Padding(
+                                    padding: EdgeInsets.only(top: 40),
+                                    child: Text('Bạn đã ăn đủ calo 🎉'),
+                                  ),
+                                if (_hasFullMeal())
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 32, bottom: 16),
+                                    child: _buildRatingButtons(),
+                                  ),
                               ],
-                            )
-
-                          ],
-                        )
-
-                    ],
-                  ),
-                ),
+                            ),
+                          ),
               ),
             ],
           ),
@@ -536,66 +377,182 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
     );
   }
 
-  Widget buildMealSection(String title, List foods, String meal){
+  // Định dạng ngày
+  String _formatDate(DateTime date) {
+    final months = [
+      'Tháng 1',
+      'Tháng 2',
+      'Tháng 3',
+      'Tháng 4',
+      'Tháng 5',
+      'Tháng 6',
+      'Tháng 7',
+      'Tháng 8',
+      'Tháng 9',
+      'Tháng 10',
+      'Tháng 11',
+      'Tháng 12'
+    ];
+    final days = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'];
+    return '${date.day} ${months[date.month - 1]}, ${days[date.weekday - 1]}';
+  }
 
-    if(foods.isEmpty) return const SizedBox();
+  // Xây dựng nút đánh giá thích/không thích
+  Widget _buildRatingButtons() {
+    if (liked != null) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        decoration: BoxDecoration(
+          color: liked! ? Colors.green.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1),
+          border: Border.all(
+            color: liked! ? Colors.green : Colors.red,
+            width: 2,
+          ),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              liked! ? Icons.favorite : Icons.thumb_down,
+              color: liked! ? Colors.green : Colors.red,
+              size: 24,
+            ),
+            const SizedBox(width: 12),
+            Text(
+              liked! ? 'Bạn đã thích thực đơn này' : 'Bạn không thích thực đơn này',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: liked! ? Colors.green : Colors.red,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          // Nút Thích
+          InkWell(
+            onTap: () => _rateMenu(true),
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0x9979EEF2), Color(0x9978F09C)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.cyan.withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.favorite_border, color: Colors.white, size: 20),
+                  SizedBox(width: 8),
+                  Text(
+                    'Thích',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Nút Không thích
+          InkWell(
+            onTap: () => _rateMenu(false),
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey[400]!, width: 1.5),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withValues(alpha: 0.2),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.thumb_down_outlined, color: Colors.grey[700], size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Không thích',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey[700],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Hiển thị danh sách món ăn cho từng bữa trong thực đơn gợi ý.
+  Widget _buildMeal(String title, List foods, String meal) {
+    if (foods.isEmpty) {
+      return const SizedBox();
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-
-        const SizedBox(height:20),
-
+        const SizedBox(height: 20),
         Text(
           title,
           style: const TextStyle(
-              fontSize:18,
-              fontWeight: FontWeight.bold
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
           ),
         ),
-
-        const SizedBox(height:10),
-
-        ...foods.map((food){
-
-          final name = food["name"];
-          final image = food["image"];
-          final calories = food["calories"];
-          final id = food["id"];
-
+        ...foods.map((f) {
           return FoodItemCard(
-
-            id: id,
-            name: name,
-            image: image,
-            calories: calories.toDouble(),
-
+            id: f['id'],
+            name: f['name'],
+            image: f['image'],
+            calories: f['calories'].toDouble(),
             onTap: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => FoodDetailScreen(foodId: id),
+                  builder: (_) => FoodDetailScreen(foodId: f['id']),
                 ),
               );
             },
-
-            /// FIX: icon thêm món
             trailing: IconButton(
-              icon: const Icon(
-                Icons.add_circle,
-                color: Colors.green,
-              ),
-              onPressed: () {
-                addFoodToDiary(id, meal);
-              },
+              icon: const Icon(Icons.add_circle, color: Colors.green),
+              onPressed: () => _addFood(f['id'], meal),
             ),
           );
-
-        }).toList()
-
+        }),
       ],
     );
-
   }
-
 }

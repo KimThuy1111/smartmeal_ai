@@ -1,14 +1,14 @@
 import 'dart:io';
-
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 
+import '../../controllers/FoodCategoryController.dart';
 import '../../models/Food.dart';
 import '../../utils/notifier.dart';
+import '../../controllers/FoodController.dart';
 
 class FoodFormScreen extends StatefulWidget {
+
   final Food? food;
 
   const FoodFormScreen({super.key, this.food});
@@ -18,6 +18,10 @@ class FoodFormScreen extends StatefulWidget {
 }
 
 class _FoodFormScreenState extends State<FoodFormScreen> {
+
+  final FoodController _controller = FoodController();
+  final FoodCategoryController _categoryController =
+  FoodCategoryController();
 
   final nameController = TextEditingController();
   final englishController = TextEditingController();
@@ -39,6 +43,10 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
 
   File? selectedImage;
   bool uploading = false;
+  String? selectedCategoryId;
+  bool loadingCategories = true;
+
+  Map<String, String> categoryMap = {};
 
   double parseValue(TextEditingController c) {
     if (c.text.trim().isEmpty) return 0;
@@ -48,6 +56,8 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
   @override
   void initState() {
     super.initState();
+    selectedCategoryId = widget.food?.categoryId;
+    loadCategories();
 
     if (widget.food != null) {
 
@@ -73,66 +83,95 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     }
   }
 
-  /// =========================================================
-  /// PICK IMAGE
-  /// =========================================================
-
-  Future<void> pickAndUploadImage() async {
-
-    final picker = ImagePicker();
-
-    final picked = await picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 75,
-    );
-
-    if (picked == null) return;
-
-    setState(() {
-      uploading = true;
-      selectedImage = File(picked.path);
-    });
-
+  Future<void> loadCategories() async {
     try {
+      final list = await _categoryController.getAllCategories();
+      final tempMap = <String, String>{};
 
-      String fileName =
-          "foods/${DateTime.now().millisecondsSinceEpoch}.jpg";
+      for (var cat in list) {
+        final name = cat.name.trim();
+        if (name.isNotEmpty) {
+          tempMap[cat.id] = name;
+        }
+      }
 
-      final ref =
-      FirebaseStorage.instance.ref().child(fileName);
-
-      await ref.putFile(selectedImage!);
-
-      String url = await ref.getDownloadURL();
-
-      imageController.text = url;
-
-      Notifier.showNotify(context, "Upload ảnh thành công");
-
-    } catch (e) {
-
-      Notifier.showError(context, "Upload ảnh thất bại");
-
+      if (mounted) {
+        setState(() {
+          categoryMap = tempMap;
+          loadingCategories = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          loadingCategories = false;
+        });
+      }
     }
-
-    setState(() {
-      uploading = false;
-    });
   }
 
-  /// =========================================================
-  /// SAVE FOOD
-  /// =========================================================
+  /// Chọn và tải ảnh lên
+  Future<void> pickAndUploadImage() async {
+    try {
+      final picker = ImagePicker();
 
+      final picked = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 75,
+      );
+
+      if (picked == null) return;
+
+      setState(() {
+        uploading = true;
+        selectedImage = File(picked.path);
+      });
+
+      final url = await _controller.uploadImage(selectedImage!);
+
+      if (url != null && url.isNotEmpty) {
+        imageController.text = url;
+        Notifier.showNotify(context, "Upload ảnh thành công");
+      } else {
+        Notifier.showError(context, "Upload ảnh thất bại");
+      }
+    } catch (e) {
+      final message = e.toString().replaceFirst('Exception: ', '');
+      Notifier.showError(context, message);
+    } finally {
+      if (mounted) {
+        setState(() {
+          uploading = false;
+        });
+      }
+    }
+  }
+
+  /// Lưu món ăn
   Future<void> saveFood() async {
 
     try {
+      if (selectedCategoryId == null || selectedCategoryId!.trim().isEmpty) {
+        Notifier.showError(context, "Vui lòng chọn phân loại món ăn");
+        return;
+      }
+
+      String imageUrl = imageController.text.trim();
+
+      // 🔥 Nếu có chọn ảnh mới → upload lại
+      if (selectedImage != null) {
+        final uploadedUrl = await _controller.uploadImage(selectedImage!);
+        if (uploadedUrl != null && uploadedUrl.isNotEmpty) {
+          imageUrl = uploadedUrl;
+        }
+      }
 
       final data = {
 
         "name": nameController.text.trim(),
         "englishName": englishController.text.trim(),
-        "image": imageController.text.trim(),
+        "image": imageUrl,
+        "categoryId": selectedCategoryId,
 
         "calories": parseValue(calController),
         "protein": parseValue(proteinController),
@@ -151,18 +190,13 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
 
       if (widget.food == null) {
 
-        await FirebaseFirestore.instance
-            .collection("food")
-            .add(data);
+        await _controller.addFood(data);
 
         Notifier.showNotify(context, "Thêm món ăn thành công");
 
       } else {
 
-        await FirebaseFirestore.instance
-            .collection("food")
-            .doc(widget.food!.id)
-            .update(data);
+        await _controller.updateFood(widget.food!.id, data);
 
         Notifier.showNotify(context, "Cập nhật món ăn thành công");
       }
@@ -175,10 +209,6 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
 
     }
   }
-
-  /// =========================================================
-  /// INPUT
-  /// =========================================================
 
   Widget input(String title, TextEditingController controller,
       {TextInputType type = TextInputType.text}) {
@@ -205,52 +235,114 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
   }
 
   Widget imageInput() {
+    return Column(
+      children: [
 
+        if (imageController.text.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.network(
+                imageController.text,
+                height: 120,
+                width: 120,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const Icon(Icons.image_not_supported),
+              ),
+            ),
+          ),
+
+        Container(
+          margin: const EdgeInsets.only(bottom: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(25),
+            border: Border.all(color: const Color(0xFFE0F2F1)),
+          ),
+          child: TextField(
+            controller: imageController,
+            decoration: InputDecoration(
+              hintText: "Link hình ảnh",
+              border: InputBorder.none,
+              suffixIcon: uploading
+                  ? const Padding(
+                padding: EdgeInsets.all(12),
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              )
+                  : IconButton(
+                icon: const Icon(Icons.upload),
+                onPressed: pickAndUploadImage,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget categoryInput() {
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.symmetric(horizontal: 16),
-
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(25),
         border: Border.all(color: const Color(0xFFE0F2F1)),
       ),
-
-      child: TextField(
-        controller: imageController,
-
-        decoration: InputDecoration(
-          hintText: "Link hình ảnh",
-          border: InputBorder.none,
-
-          suffixIcon: uploading
-              ? const Padding(
-            padding: EdgeInsets.all(12),
-            child: SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
+      child: loadingCategories
+          ? const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  SizedBox(width: 12),
+                  Text("Đang tải phân loại..."),
+                ],
+              ),
+            )
+          : DropdownButtonHideUnderline(
+              child: ButtonTheme(
+                alignedDropdown: true,
+                child: DropdownButton<String>(
+                  isExpanded: true,
+                  hint: const Text("Chọn phân loại"),
+                  value: selectedCategoryId,
+                  items: categoryMap.entries
+                      .map(
+                        (entry) => DropdownMenuItem<String>(
+                          value: entry.key,
+                          child: Text(
+                            entry.value,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    setState(() {
+                      selectedCategoryId = value;
+                    });
+                  },
+                ),
+              ),
             ),
-          )
-              : IconButton(
-            icon: const Icon(Icons.upload),
-            onPressed: pickAndUploadImage,
-          ),
-        ),
-      ),
     );
   }
-
-  /// =========================================================
-  /// UI
-  /// =========================================================
 
   @override
   Widget build(BuildContext context) {
 
     return Scaffold(
-
-      /// FIX: bỏ AppBar → dùng header giống FoodManagementScreen
       body: Container(
 
         decoration: const BoxDecoration(
@@ -262,17 +354,14 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
         ),
 
         child: SafeArea(
-
           child: Column(
-
             children: [
 
               const SizedBox(height: 10),
 
-              /// FIX: HEADER giống trang quản lý món ăn
+              /// Thanh tiêu đề
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-
                 child: Row(
                   children: [
 
@@ -300,9 +389,6 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
                 ),
               ),
 
-              const SizedBox(height: 10),
-
-              /// FORM
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(20),
@@ -310,84 +396,69 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
                   child: Column(
                     children: [
 
+                      /// Thông tin cơ bản
                       input("Tên món ăn", nameController),
                       input("Tên tiếng Anh", englishController),
+                      categoryInput(),
 
                       imageInput(),
 
                       const SizedBox(height: 10),
 
-                      const Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          "Macros",
-                          style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold),
-                        ),
-                      ),
-
-                      const SizedBox(height: 10),
-
+                      /// Chỉ số dinh dưỡng chính
                       input("Calories", calController,
                           type: TextInputType.number),
-
-                      input("Protein (g)", proteinController,
+                      input("Protein", proteinController,
                           type: TextInputType.number),
-
-                      input("Fat (g)", fatController,
+                      input("Fat", fatController,
                           type: TextInputType.number),
-
-                      input("carb (g)", carbController,
+                      input("Carb", carbController,
                           type: TextInputType.number),
 
                       const SizedBox(height: 10),
 
-                      const Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          "Vi chất dinh dưỡng",
-                          style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold),
-                        ),
-                      ),
-
-                      const SizedBox(height: 10),
-
+                      /// Chỉ số dinh dưỡng bổ sung
                       input("Calcium", calciumController,
-                          type: TextInputType.number),
-
+                          type: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          )),
                       input("Iron", ironController,
-                          type: TextInputType.number),
-
+                          type: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          )),
                       input("Zinc", zincController,
-                          type: TextInputType.number),
-
+                          type: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          )),
                       input("Sodium", sodiumController,
-                          type: TextInputType.number),
-
+                          type: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          )),
                       input("Magnesium", magnesiumController,
-                          type: TextInputType.number),
-
+                          type: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          )),
                       input("Vitamin A", vitaminAController,
-                          type: TextInputType.number),
-
+                          type: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          )),
                       input("Potassium", potassiumController,
-                          type: TextInputType.number),
-
+                          type: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          )),
                       input("MUFA + PUFA", mufaController,
-                          type: TextInputType.number),
+                          type: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          )),
 
                       const SizedBox(height: 20),
 
+                      /// Nút lưu món ăn
                       GestureDetector(
                         onTap: saveFood,
-
                         child: Container(
                           height: 50,
                           width: double.infinity,
-
                           decoration: BoxDecoration(
                             gradient: const LinearGradient(
                               colors: [
@@ -397,9 +468,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
                             ),
                             borderRadius: BorderRadius.circular(25),
                           ),
-
                           alignment: Alignment.center,
-
                           child: const Text(
                             "LƯU MÓN ĂN",
                             style: TextStyle(

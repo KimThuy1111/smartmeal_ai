@@ -1,15 +1,11 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:smartmeal_ai/screens/RegisterScreen.dart';
-import 'package:smartmeal_ai/screens/RegisterStep2Screen.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 
+import '../controllers/AuthController.dart';
 import '../models/Role.dart';
 import '../utils/notifier.dart';
 import 'HomeScreen.dart';
-import 'dart:async';
-
+import 'RegisterScreen.dart';
+import 'RegisterStep2Screen.dart';
 import 'admin/AdminDashboardScreen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -18,333 +14,213 @@ class LoginScreen extends StatefulWidget {
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
-class _LoginScreenState extends State<LoginScreen> {
-  final emailController = TextEditingController();
-  final passwordController = TextEditingController();
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  final GoogleSignIn _googleSignIn = GoogleSignIn();
+class _LoginScreenState extends State<LoginScreen> {
+  final AuthController _authController = AuthController();
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
 
   bool isLoading = false;
   bool showPass = true;
-  String generatedOTP = "";
 
-  // Hàm login
-  void login() async {
-    String email = emailController.text.trim();
-    String password = passwordController.text.trim();
+  // Xử lý đăng nhập bằng email/mật khẩu, sau đó điều hướng theo vai trò tài khoản.
+  Future<void> _login() async {
+    final String email = emailController.text.trim();
+    final String password = passwordController.text.trim();
 
-    //2.2.3 Yêu cầu người dùng nhập đầy đủ thông tin
     if (email.isEmpty || password.isEmpty) {
-      Notifier.showError(context, "Vui lòng nhập đầy đủ thông tin!");
+      Notifier.showError(context, 'Vui lòng nhập đầy đủ thông tin!');
       return;
     }
 
     try {
       setState(() => isLoading = true);
 
-      //2.1.3 Gửi yêu cầu xác thực đến Firebase Authentication
-      UserCredential userCredential =
-      await _auth.signInWithEmailAndPassword(
+      final result = await _authController.login(
         email: email,
         password: password,
       );
 
-      //2.1.4 Lấy userId của người dùng
-      String uid = userCredential.user!.uid;
+      final doc = result['doc'];
+      final uid = result['uid'];
+      final String role = doc['role'];
 
-      //2.1.5 Kiểm tra xem người dùng đã nhập thông tin cá nhân chưa
-      DocumentSnapshot doc =
-      await _db.collection("users").doc(uid).get();
-      String role = doc["role"];
       if (role == Role.admin) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(
-            builder: (_) => const AdminDashboardScreen(),
-          ),
+          MaterialPageRoute(builder: (_) => const AdminDashboardScreen()),
         );
-
-      }else{
+      } else {
         if (doc.exists) {
-          //2.1.6 Chuyển đến trang home
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(builder: (_) => const HomeScreen()),
-                (route) => false,
+            (route) => false,
           );
-          Notifier.showNotify(context, "Đăng nhập thành công!!!");
-
         } else {
-          //2.2.6 Chuyển đến trang điền thông tin
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
               builder: (_) => RegisterStep2Screen(
                 uid: uid,
                 email: email,
-                name: userCredential.user!.displayName ?? "",
-                avatar: "https://cdn-icons-png.flaticon.com/512/149/149071.png",
+                name: result['user'].displayName ?? '',
+                avatar: 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
               ),
             ),
           );
         }
       }
 
+      Notifier.showNotify(context, 'Đăng nhập thành công!!!');
+    } catch (e) {
+      String message = 'Đăng nhập thất bại';
 
-    } on FirebaseAuthException catch (e) {
+      if (e.toString().contains('invalid-credential')) {
+        message = 'Email không tồn tại hoặc sai mật khẩu!';
+      } else if (e.toString().contains('invalid-email')) {
+        message = 'Email không hợp lệ!';
+      }
 
-  //2.2.3 Thông tin không hợp lệ
-  String message = "Đăng nhập thất bại!";
-  if (e.code == 'user-not-found') {
-  message = "Email chưa được đăng ký!";
-  }
-  else if (e.code == 'wrong-password') {
-  message = "Sai mật khẩu!";
-  }
-  else if (e.code == 'invalid-email') {
-  message = "Email không hợp lệ!";
-  }
-  Notifier.showError(context, message);
-  }
-  finally {
+      Notifier.showError(context, message);
+    } finally {
       setState(() => isLoading = false);
     }
   }
-  // Đăng nhập gg
-  Future<void> signInWithGoogle() async {
 
+  // Xử lý đăng nhập Google và điều hướng theo trạng thái hồ sơ người dùng.
+  Future<void> _signInWithGoogle() async {
     try {
-
       setState(() => isLoading = true);
 
-      // 1. Chọn tài khoản Google
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-
-      if (googleUser == null) {
-        setState(() => isLoading = false);
+      final result = await _authController.loginWithGoogle();
+      if (result == null) {
         return;
       }
 
-      // 2. Lấy token Google
-      final GoogleSignInAuthentication googleAuth =
-      await googleUser.authentication;
+      final doc = result['doc'];
+      final user = result['user'];
+      final uid = result['uid'];
+      final String role = doc['role'];
 
-      // 3. Tạo credential Firebase
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
-
-      // 4. Đăng nhập Firebase
-      UserCredential userCredential =
-      await _auth.signInWithCredential(credential);
-
-      User user = userCredential.user!;
-      String uid = user.uid;
-
-      // 5. Kiểm tra Firestore đã có profile chưa
-      DocumentSnapshot doc =
-      await _db.collection("users").doc(uid).get();
-      String role = doc["role"];
       if (role == Role.admin) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(
-            builder: (_) => const AdminDashboardScreen(),
-          ),
+          MaterialPageRoute(builder: (_) => const AdminDashboardScreen()),
         );
-
-      }else{
+      } else {
         if (doc.exists) {
-
-          // Đã nhập thông tin Step2 → vào Home
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(builder: (_) => const HomeScreen()),
-                (route) => false,
+            (route) => false,
           );
-
-          Notifier.showNotify(context, "Đăng nhập thành công!");
-
         } else {
-
-          // Chưa có thông tin Step2
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
               builder: (_) => RegisterStep2Screen(
                 uid: uid,
-                email: user.email ?? "",
-                name: user.displayName ?? "",
-                avatar: user.photoURL ??
-                    "https://cdn-icons-png.flaticon.com/512/149/149071.png",
+                email: user.email ?? '',
+                name: user.displayName ?? '',
+                avatar:
+                    user.photoURL ??
+                    'https://cdn-icons-png.flaticon.com/512/149/149071.png',
               ),
             ),
           );
         }
       }
 
-
-
+      Notifier.showNotify(context, 'Đăng nhập thành công!');
     } catch (e) {
-
-      Notifier.showError(context, "Đăng nhập Google thất bại");
-      print(e);
-
+      Notifier.showError(context, 'Đăng nhập Google thất bại');
     } finally {
-
       setState(() => isLoading = false);
-
     }
   }
-  //Quên mật khẩu
-  void showEmailDialog() {
 
-    TextEditingController emailController = TextEditingController();
+  // Hiển thị hộp thoại nhập email để gửi link đặt lại mật khẩu.
+  void _showEmailDialog() {
+    final TextEditingController emailController = TextEditingController();
 
     showDialog(
       context: context,
       builder: (_) {
-
         return Dialog(
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(25),
           ),
           child: Padding(
             padding: const EdgeInsets.all(24),
-
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-
                 const Text(
-                  "Quên mật khẩu",
+                  'Quên mật khẩu',
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-
-                const SizedBox(height: 10),
-
-                const Text(
-                  "Nhập email để nhận link đặt lại mật khẩu",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.grey,
-                    fontSize: 14,
-                  ),
-                ),
-
                 const SizedBox(height: 20),
-
-                /// input email giống login
-                Container(
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(25),
-                    border: Border.all(color: const Color(0xFFE0F2F1)),
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-
-                  child: TextField(
-                    controller: emailController,
-                    decoration: const InputDecoration(
-                      hintText: "Nhập email",
-                      border: InputBorder.none,
-                    ),
+                TextField(
+                  controller: emailController,
+                  decoration: const InputDecoration(
+                    hintText: 'Nhập email',
                   ),
                 ),
-
-                const SizedBox(height: 25),
-
-                /// button gửi link
+                const SizedBox(height: 20),
                 GestureDetector(
                   onTap: () async {
+                    final String email = emailController.text.trim();
 
-                    String email = emailController.text.trim();
-
-                    if(email.isEmpty){
-                      Notifier.showError(context, "Vui lòng nhập email");
+                    if (email.isEmpty) {
+                      Notifier.showError(context, 'Vui lòng nhập email');
                       return;
                     }
 
                     try {
-
-                      await FirebaseAuth.instance
-                          .sendPasswordResetEmail(email: email);
-
+                      await _authController.resetPassword(email);
                       Navigator.pop(context);
-
                       Notifier.showNotify(
-                          context,
-                          "Link đổi mật khẩu đã gửi vào email của bạn"
+                        context,
+                        'Link đổi mật khẩu đã gửi vào email',
                       );
-
-                    } catch(e) {
-
-                      Notifier.showError(context, "Email không tồn tại");
-
+                    } catch (e) {
+                      Notifier.showError(context, 'Email không tồn tại');
                     }
-
                   },
-
                   child: Container(
-                    height: 50,
+                    height: 45,
                     width: double.infinity,
-
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [
-                          Color(0xFF79EEF2),
-                          Color(0xFF78F09C)
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(25),
-                    ),
-
                     alignment: Alignment.center,
-
-                    child: const Text(
-                      "GỬI LINK",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      color: Colors.greenAccent,
                     ),
+                    child: const Text('GỬI LINK'),
                   ),
                 ),
-
-                const SizedBox(height: 10),
-
                 TextButton(
-                  onPressed: (){
-                    Navigator.pop(context);
-                  },
-                  child: const Text("Hủy"),
-                )
-
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Hủy'),
+                ),
               ],
             ),
           ),
         );
-
       },
     );
   }
 
-
-  //UI
   @override
-  Widget build(BuildContext context){
+  Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFFE4FFE4), Colors.white,],
+            colors: [Color(0xFFE4FFE4), Colors.white],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
@@ -356,20 +232,18 @@ class _LoginScreenState extends State<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const SizedBox(height: 20),
-                Image.asset("assets/images/logo.png",height: 100,),
+                Image.asset('assets/images/logo.png', height: 100),
                 const SizedBox(height: 5),
-
                 const Text(
-                  "CALO",
+                  'CALO',
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 10),
-
                 const Text(
-                  "ĐĂNG NHẬP",
+                  'ĐĂNG NHẬP',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -377,75 +251,39 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: 30),
-
-                //2.1.1 Người dùng nhập email và password
-                buildInputField(
+                _buildInputField(
                   controller: emailController,
-                  hint: "Nhập email",
+                  hint: 'Nhập email',
                 ),
                 const SizedBox(height: 16),
-
-                buildInputField(
+                _buildInputField(
                   controller: passwordController,
-                  hint: "Nhập mật khẩu",
+                  hint: 'Nhập mật khẩu',
                   isPassword: true,
                 ),
                 const SizedBox(height: 10),
-
-                if(isLoading)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 16),
-                    child: CircularProgressIndicator(),
-                  ),
-                const SizedBox(height: 7),
-
+                if (isLoading) const CircularProgressIndicator(),
+                const SizedBox(height: 10),
                 Align(
                   alignment: Alignment.centerLeft,
                   child: GestureDetector(
-                    onTap: showEmailDialog,
+                    onTap: _showEmailDialog,
                     child: const Text(
-                      "Quên mật khẩu ?",
-                      style: TextStyle(
-                        color: Color(0xFF2196F3),
-                        fontSize: 14,
-                      ),
+                      'Quên mật khẩu ?',
+                      style: TextStyle(color: Colors.blue),
                     ),
                   ),
                 ),
                 const SizedBox(height: 24),
-
-                //2.1.2 Khi người dùng click "Đăng nhập" gọi hàm login để xử lý
                 GestureDetector(
-                  onTap: login,
-                  child: Container(
-                    height: 50,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [
-                          Color(0xFF79EEF2),
-                          Color(0xFF78F09C)
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(25),
-                    ),
-                    alignment: Alignment.center,
-                    child: const Text(
-                      "ĐĂNG NHẬP",
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                      ),
-                    ),
-                  ),
+                  onTap: _login,
+                  child: _buildButton('ĐĂNG NHẬP'),
                 ),
                 const SizedBox(height: 20),
-
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text("Bạn chưa có tài khoản? "),
+                    const Text('Bạn chưa có tài khoản? '),
                     GestureDetector(
                       onTap: () {
                         Navigator.push(
@@ -455,34 +293,49 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         );
                       },
-                      child: const Text("Đăng ký",
-                        style: TextStyle(
-                            color: Colors.blue,
-                            fontWeight: FontWeight.bold),
+                      child: const Text(
+                        'Đăng ký',
+                        style: TextStyle(color: Colors.blue),
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 10),
-                Text("---------- HOẶC ----------"),
-                const SizedBox(height: 7),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    GestureDetector(
-                      onTap: signInWithGoogle,
-                      child: buildSocialIcon("assets/images/ic_google.png"),
-                    ),
-                  ],
+                const Text('---------- HOẶC ----------'),
+                const SizedBox(height: 10),
+                GestureDetector(
+                  onTap: _signInWithGoogle,
+                  child: _buildSocialIcon('assets/images/ic_google.png'),
                 ),
-              ]
-            )
-          )
-        )
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
-  Widget buildInputField({
+
+  // Tạo nút chính dùng cho thao tác đăng nhập.
+  Widget _buildButton(String text) {
+    return Container(
+      height: 50,
+      width: double.infinity,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(25),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF79EEF2), Color(0xFF78F09C)],
+        ),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
+  // Tạo ô nhập liệu, hỗ trợ ẩn/hiện mật khẩu khi là trường password.
+  Widget _buildInputField({
     required TextEditingController controller,
     required String hint,
     bool isPassword = false,
@@ -492,48 +345,33 @@ class _LoginScreenState extends State<LoginScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: const Color(0xFFE0F2F1)),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Center(
-        child: TextField(
-          controller: controller,
-          obscureText: isPassword ? showPass : false,
-          decoration: InputDecoration(
-            hintText: hint,
-            border: InputBorder.none,
-            hintStyle: const TextStyle(color: Color(0xFF888888)),
-
-            // Icon con mắt
-            suffixIcon: isPassword
-                ? IconButton(
-              icon: Icon(
-                showPass? Icons.visibility_off : Icons.visibility,
-                color: Colors.grey,
-              ),
-              onPressed: () {
-                setState(() {
-                  showPass = !showPass;
-                });
-              },
-            )
-                : null,
-          ),
+      child: TextField(
+        controller: controller,
+        obscureText: isPassword ? showPass : false,
+        decoration: InputDecoration(
+          hintText: hint,
+          border: InputBorder.none,
+          suffixIcon: isPassword
+              ? IconButton(
+                  icon: Icon(
+                    showPass ? Icons.visibility_off : Icons.visibility,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      showPass = !showPass;
+                    });
+                  },
+                )
+              : null,
         ),
       ),
     );
   }
 
-
-  Widget buildSocialIcon(String path) {
-    return Padding(
-      padding: const EdgeInsets.all(8),
-      child: Image.asset(
-        path,
-        width: 32,
-        height: 32,
-      ),
-    );
+  // Hiển thị icon mạng xã hội dùng cho đăng nhập bên thứ ba.
+  Widget _buildSocialIcon(String path) {
+    return Image.asset(path, width: 32, height: 32);
   }
 }
-

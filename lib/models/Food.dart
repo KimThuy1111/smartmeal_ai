@@ -3,6 +3,8 @@ class Food {
   String name;
   String? englishName;
   String? image;
+  String? categoryId;
+
   double calories;
   double protein;
   double fat;
@@ -22,6 +24,7 @@ class Food {
     required this.name,
     this.englishName,
     this.image,
+    this.categoryId,
     required this.calories,
     required this.protein,
     required this.fat,
@@ -42,6 +45,8 @@ class Food {
       name: map["name"] ?? "",
       englishName: map['englishName'],
       image: map["image"],
+      categoryId: map["categoryId"],
+
       calories: (map["calories"] ?? 0).toDouble(),
       protein: (map["protein"] ?? 0).toDouble(),
       fat: (map["fat"] ?? 0).toDouble(),

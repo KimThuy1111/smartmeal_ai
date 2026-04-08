@@ -6,6 +6,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:smartmeal_ai/screens/LoginScreen.dart';
 import 'package:smartmeal_ai/screens/HomeScreen.dart';
 import 'package:smartmeal_ai/screens/admin/AdminDashboardScreen.dart';
+import 'package:smartmeal_ai/utils/CategoryInitializer.dart';
+import 'package:smartmeal_ai/utils/FoodMigration.dart';
 import 'firebase_options.dart';
 import 'models/Role.dart';
 
@@ -15,6 +17,12 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // Initialize default categories on app startup
+  await CategoryInitializer.initializeCategories();
+
+  // Migrate existing food records to use categoryId
+  await FoodMigration.migrateToCategory();
 
   runApp(const MyApp());
 }

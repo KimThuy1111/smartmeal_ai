@@ -1,31 +1,35 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:smartmeal_ai/screens/admin/UserManagementScreen.dart';
+import '../../controllers/AdminController.dart';
+import '../../controllers/UserController.dart';
+import 'UserManagementScreen.dart';
 import '../UserProfileScreen.dart';
 import 'FoodManagementScreen.dart';
 import '../LoginScreen.dart';
 import 'MenuFeedbackScreen.dart';
+import 'CategoryManagementScreen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
 
   @override
-  State<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
+  State<AdminDashboardScreen> createState() =>
+      _AdminDashboardScreenState();
 }
 
-class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
+class _AdminDashboardScreenState
+    extends State<AdminDashboardScreen> {
+
+  final AdminController _controller = AdminController();
+  final UserController _userController = UserController();
 
   int totalFoods = 0;
   int totalUsers = 0;
+  int totalCategories = 0;
 
   String avatarUrl =
       "https://cdn-icons-png.flaticon.com/512/149/149071.png";
   String name = "Admin";
   String email = "";
-
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   @override
   void initState() {
@@ -36,108 +40,45 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Future<void> loadStats() async {
 
-    final foodSnap =
-    await FirebaseFirestore.instance.collection("food").get();
-
-    final userSnap =
-    await FirebaseFirestore.instance.collection("users").get();
+    final result = await _controller.loadStats();
 
     setState(() {
-      totalFoods = foodSnap.docs.length;
-      totalUsers = userSnap.docs.length;
+      totalFoods = result["totalFoods"] ?? 0;
+      totalUsers = result["totalUsers"] ?? 0;
+      totalCategories = result["totalCategories"] ?? 0;
     });
   }
 
   Future<void> loadAdminProfile() async {
 
-    final user = _auth.currentUser;
+    final data = await _controller.getAdminProfile();
 
-    if (user == null) return;
-
-    final doc = await _db.collection("users").doc(user.uid).get();
-
-    if (doc.exists) {
+    if (data != null) {
       setState(() {
-        name = doc["name"] ?? "Admin";
-        email = doc["email"] ?? "";
-        avatarUrl = doc["avatar"] ??
+        name = data["name"] ?? "Admin";
+        email = data["email"] ?? "";
+        avatarUrl = data["avatar"] ??
             "https://cdn-icons-png.flaticon.com/512/149/149071.png";
       });
     }
   }
 
-  void showAccountMenu() {
+  Future<void> logout() async {
+    await _userController.logout();
 
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const LoginScreen(),
       ),
-
-      builder: (context) {
-
-        return Padding(
-          padding: const EdgeInsets.all(20),
-
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-
-            children: [
-
-              CircleAvatar(
-                radius: 40,
-                backgroundImage: NetworkImage(avatarUrl),
-              ),
-
-              const SizedBox(height: 10),
-
-              Text(
-                name,
-                style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold),
-              ),
-
-              Text(
-                email,
-                style: const TextStyle(color: Colors.grey),
-              ),
-
-              const SizedBox(height: 20),
-
-              ListTile(
-                leading: const Icon(Icons.logout, color: Colors.red),
-                title: const Text(
-                  "Đăng xuất",
-                  style: TextStyle(color: Colors.red),
-                ),
-                onTap: () async {
-
-                  await _auth.signOut();
-
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const LoginScreen()),
-                        (route) => false,
-                  );
-                },
-              ),
-
-            ],
-          ),
-        );
-      },
+          (route) => false,
     );
   }
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
-
       body: Container(
-
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             colors: [Color(0xFFE4FFE4), Colors.white],
@@ -147,17 +88,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ),
 
         child: SafeArea(
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
 
-          child: Column(
+                const SizedBox(height: 10),
 
-            children: [
-
-              const SizedBox(height: 10),
-
-              /// HEADER
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Row(
+                // Phần tiêu đề
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
                   children: [
 
                     const Expanded(
@@ -187,19 +127,22 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
                               CircleAvatar(
                                 radius: 18,
-                                backgroundImage: NetworkImage(avatarUrl),
+                                backgroundImage:
+                                NetworkImage(avatarUrl),
                               ),
 
                               const SizedBox(width: 10),
 
                               Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                                crossAxisAlignment:
+                                CrossAxisAlignment.start,
                                 children: [
 
                                   Text(
                                     name,
                                     style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
+                                      fontWeight:
+                                      FontWeight.bold,
                                     ),
                                   ),
 
@@ -210,7 +153,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                       color: Colors.grey,
                                     ),
                                   )
-
                                 ],
                               )
                             ],
@@ -234,11 +176,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           value: 2,
                           child: Row(
                             children: [
-                              Icon(Icons.logout, color: Colors.red),
+                              Icon(Icons.logout,
+                                  color: Colors.red),
                               SizedBox(width: 10),
                               Text(
                                 "Đăng xuất",
-                                style: TextStyle(color: Colors.red),
+                                style:
+                                TextStyle(color: Colors.red),
                               ),
                             ],
                           ),
@@ -246,37 +190,28 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
                       ],
 
-                      onSelected: (value) async {
+                      onSelected: (value) {
 
                         if (value == 1) {
-
-                          // mở trang profile
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => const UserProfileScreen(showFooter: false),
+                              builder: (_) =>
+                              const UserProfileScreen(
+                                  showFooter: false),
                             ),
                           );
-
                         }
 
                         if (value == 2) {
-
-                          await FirebaseAuth.instance.signOut();
-
-                          Navigator.pushAndRemoveUntil(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const LoginScreen(),
-                            ),
-                                (route) => false,
-                          );
+                          logout();
                         }
                       },
 
                       child: CircleAvatar(
                         radius: 20,
-                        backgroundImage: NetworkImage(avatarUrl),
+                        backgroundImage:
+                        NetworkImage(avatarUrl),
                       ),
                     )
 
@@ -286,42 +221,69 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
               const SizedBox(height: 30),
 
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
+              // Các thống kê nhanh
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  mainAxisAlignment:
+                  MainAxisAlignment.spaceEvenly,
+                  children: [
 
-                  statCard(
-                    title: "Món ăn",
-                    value: totalFoods.toString(),
-                    icon: Icons.restaurant,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const FoodManagementScreen(),
-                        ),
-                      );
-                    },
-                  ),
+                    statCard(
+                      title: "Món ăn",
+                      value: totalFoods.toString(),
+                      icon: Icons.restaurant,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                            const FoodManagementScreen(),
+                          ),
+                        );
+                      },
+                    ),
 
-                  statCard(
-                    title: "Người dùng",
-                    value: totalUsers.toString(),
-                    icon: Icons.people,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const UserManagementScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                ],
+                    const SizedBox(width: 16),
+
+                    statCard(
+                      title: "Người dùng",
+                      value: totalUsers.toString(),
+                      icon: Icons.people,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                            const UserManagementScreen(),
+                          ),
+                        );
+                      },
+                    ),
+
+                    const SizedBox(width: 16),
+
+                    statCard(
+                      title: "Phân loại",
+                      value: totalCategories.toString(),
+                      icon: Icons.category,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                            const CategoryManagementScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
 
               const SizedBox(height: 30),
 
+              // Các mục quản lý chính
               menuCard(
                 title: "Quản lý món ăn",
                 icon: Icons.fastfood,
@@ -329,12 +291,31 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const FoodManagementScreen(),
+                      builder: (_) =>
+                      const FoodManagementScreen(),
                     ),
                   );
                 },
               ),
+
               const SizedBox(height: 20),
+
+              menuCard(
+                title: "Quản lý phân loại món ăn",
+                icon: Icons.category,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                      const CategoryManagementScreen(),
+                    ),
+                  );
+                },
+              ),
+
+              const SizedBox(height: 20),
+
               menuCard(
                 title: "Quản lý người dùng",
                 icon: Icons.people,
@@ -342,7 +323,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const UserManagementScreen(),
+                      builder: (_) =>
+                      const UserManagementScreen(),
                     ),
                   );
                 },
@@ -350,20 +332,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
               const SizedBox(height: 20),
 
-              menuCard(
-                title: "Đánh giá thực đơn AI",
-                icon: Icons.analytics,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const MenuFeedbackScreen(),
-                    ),
-                  );
-                },
-              ),
+                menuCard(
+                  title: "Đánh giá thực đơn AI",
+                  icon: Icons.analytics,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                        const MenuFeedbackScreen(),
+                      ),
+                    );
+                  },
+                ),
 
-            ],
+                const SizedBox(height: 30),
+              ],
+            ),
           ),
         ),
       ),
@@ -395,7 +380,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         child: Column(
           children: [
 
-            Icon(icon, size: 40, color: const Color(0xFF00C569)),
+            Icon(icon,
+                size: 40,
+                color: const Color(0xFF00C569)),
 
             const SizedBox(height: 10),
 
@@ -407,7 +394,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
 
             Text(title),
-
           ],
         ),
       ),
@@ -424,7 +410,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       onTap: onTap,
 
       child: Container(
-
         margin: const EdgeInsets.symmetric(horizontal: 20),
         padding: const EdgeInsets.all(20),
 
@@ -455,7 +440,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
 
             const Icon(Icons.arrow_forward_ios, size: 16)
-
           ],
         ),
       ),

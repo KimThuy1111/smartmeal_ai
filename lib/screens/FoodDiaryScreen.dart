@@ -1,12 +1,11 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import '../component/BackgroundGradient.dart';
-import '../component/Footer.dart';
+
+import '../controllers/FoodDiaryController.dart';
 import '../models/FoodDiary.dart';
+import '../widgets/BackgroundGradient.dart';
+import '../widgets/Footer.dart';
 import 'FoodDetailScreen.dart';
+import 'FoodDiaryStatsScreen.dart';
 import 'SearchFoodScreen.dart';
 
 class FoodDiaryScreen extends StatefulWidget {
@@ -17,11 +16,13 @@ class FoodDiaryScreen extends StatefulWidget {
 }
 
 class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
+  final FoodDiaryController _controller = FoodDiaryController();
 
   List<FoodDiary> breakfast = [];
   List<FoodDiary> lunch = [];
   List<FoodDiary> dinner = [];
 
+  bool isOver = false;
   double totalCalories = 0;
   double targetCalories = 0;
 
@@ -33,20 +34,17 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
   @override
   void initState() {
     super.initState();
-    loadDiary();
+    _loadDiary();
   }
 
-  String getDateString(DateTime date) {
-    return date.toString().substring(0, 10);
+  /// Định dạng ngày hiển thị theo kiểu dd/mm/yyyy.
+  String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year}';
   }
 
-  String formatDate(DateTime date) {
-    return "${date.day}/${date.month}/${date.year}";
-  }
-
-  Future<void> pickDate() async {
-
-    DateTime? picked = await showDatePicker(
+  /// Mở bộ chọn ngày và tải lại nhật ký nếu người dùng chọn ngày mới.
+  Future<void> _pickDate() async {
+    final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: selectedDate,
       firstDate: DateTime(2020),
@@ -58,83 +56,26 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
         selectedDate = picked;
       });
 
-      loadDiary();
+      _loadDiary();
     }
   }
 
-  // Hàm load nhật kí ăn uống
-  Future<void> loadDiary() async {
-    final uid = FirebaseAuth.instance.currentUser!.uid;
-    // Lấy thông tin user từ Firestore
-    final userDoc = await FirebaseFirestore.instance
-        .collection("users")
-        .doc(uid)
-        .get();
+  /// Tải dữ liệu nhật ký ăn uống theo ngày đang được chọn.
+  Future<void> _loadDiary() async {
+    final result = await _controller.loadDiary(selectedDate);
 
-    final userData = userDoc.data();
-    if (userData == null) return;
-
-    if(userData["nutrition"] != null){
-
-      final nutrition = userData["nutrition"];
-
-      targetCalories =
-          (nutrition["Calories"] ?? 0).toDouble();
-    }
-
-    // Load dữ liệu món đã ăn từ Firestore
-    final snapshot = await FirebaseFirestore.instance
-        .collection("food_diary")
-        .where("userId", isEqualTo: uid)
-        .where("date", isEqualTo: getDateString(selectedDate))
-        .get();
-
-    breakfast.clear();
-    lunch.clear();
-    dinner.clear();
-    totalCalories = 0;
-
-    for (var doc in snapshot.docs) {
-      final foodId = doc["foodId"];
-      final meal = doc["meal"];
-      final foodDoc = await FirebaseFirestore.instance
-          .collection("food")
-          .doc(foodId)
-          .get();
-
-      final data = foodDoc.data();
-      if (data == null) continue;
-
-      final item = FoodDiary(
-        foodId: foodId,
-        meal: meal,
-        date: getDateString(selectedDate),
-        name: data["name"],
-        image: data["image"],
-        calories: (data["calories"] ?? 0).toDouble(),
-      );
-
-      totalCalories += item.calories;
-
-      switch (meal) {
-        case "breakfast":
-          breakfast.add(item);
-          break;
-        case "lunch":
-          lunch.add(item);
-          break;
-        case "dinner":
-          dinner.add(item);
-          break;
-      }
-    }
-    setState(() {});
+    setState(() {
+      breakfast = result['breakfast'];
+      lunch = result['lunch'];
+      dinner = result['dinner'];
+      totalCalories = result['totalCalories'];
+      targetCalories = result['targetCalories'];
+      isOver = result['isOver'];
+    });
   }
 
-  // UI
   @override
   Widget build(BuildContext context) {
-    bool isOver = totalCalories > targetCalories && targetCalories > 0;
     return Scaffold(
       bottomNavigationBar: const Footer(currentIndex: 1),
       body: BackgroundGradient(
@@ -146,40 +87,36 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Expanded(
                           child: Center(
                             child: Text(
-                              "Nhật ký ăn uống",
+                              'Nhật ký ăn uống',
                               style: TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold),
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ),
                         IconButton(
                           icon: const Icon(Icons.calendar_month),
-                          onPressed: pickDate,
+                          onPressed: _pickDate,
                         ),
                       ],
                     ),
-
                     Center(
                       child: Text(
-                        formatDate(selectedDate),
+                        _formatDate(selectedDate),
                         style: const TextStyle(
                           fontSize: 14,
                           color: Colors.grey,
                         ),
                       ),
                     ),
-
                     const SizedBox(height: 20),
-
-                    // Tổng calo
                     Center(
                       child: Container(
                         width: 165,
@@ -188,9 +125,8 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
                           shape: BoxShape.circle,
                           color: const Color(0xFFF2FDF7),
                           border: Border.all(
-                            color: isOver
-                                ? Colors.red
-                                : const Color(0xFFC7EEDB),
+                            color:
+                                isOver ? Colors.red : const Color(0xFFC7EEDB),
                             width: 3,
                           ),
                         ),
@@ -204,32 +140,66 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            const Text("kcal consumed"),
+                            const Text('kcal consumed'),
                             const SizedBox(height: 6),
                             Text(
-                              "Target: ${targetCalories.toStringAsFixed(0)}",
+                              'Target: ${targetCalories.toStringAsFixed(0)}',
                               style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey),
-                            )
+                                fontSize: 12,
+                                color: Colors.grey,
+                              ),
+                            ),
                           ],
                         ),
                       ),
                     ),
+                    _buildMealSection('Bữa sáng', breakfast),
+                    _buildMealSection('Bữa trưa', lunch),
+                    _buildMealSection('Bữa tối', dinner),
 
-                    buildMealSection("Bữa sáng", breakfast),
-                    buildMealSection("Bữa trưa", lunch),
-                    buildMealSection("Bữa tối", dinner),
+                    const SizedBox(height: 12),
+
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => FoodDiaryStatsScreen(
+                              initialDate: selectedDate,
+                            ),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        height: 50,
+                        width: double.infinity,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF79EEF2), Color(0xFF78F09C)],
+                          ),
+                          borderRadius: BorderRadius.circular(25),
+                        ),
+                        child: const Text(
+                          'XEM THỐNG KÊ',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                          ),
+                        ),
+                      ),
+                    ),
 
                     const SizedBox(height: 120),
                   ],
                 ),
               ),
-
               Positioned(
                 left: fabX,
                 top: fabY,
                 child: GestureDetector(
+                  // Cho phép kéo thả vị trí nút thêm món ăn trên màn hình.
                   onPanUpdate: (details) {
                     setState(() {
                       fabX += details.delta.dx;
@@ -245,7 +215,7 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
                         MaterialPageRoute(
                           builder: (_) => const SearchFoodScreen(),
                         ),
-                      ).then((_) => loadDiary());
+                      ).then((_) => _loadDiary());
                     },
                     child: const Icon(
                       Icons.add_circle,
@@ -262,8 +232,8 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
     );
   }
 
-  // Hiển thị từng bữa ăn
-  Widget buildMealSection(String title, List<FoodDiary> list) {
+  /// Hiển thị danh sách món ăn cho một bữa cụ thể.
+  Widget _buildMealSection(String title, List<FoodDiary> list) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -276,35 +246,32 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
           ),
         ),
         const SizedBox(height: 10),
-        ...list.map((e) => buildFoodItem(e)).toList(),
+        ...list.map((e) => _buildFoodItem(e)).toList(),
       ],
     );
   }
 
-  // Hiển thị 1 món
-  Widget buildFoodItem(FoodDiary item) {
+  /// Tạo item món ăn và điều hướng sang màn hình chi tiết khi nhấn vào.
+  Widget _buildFoodItem(FoodDiary item) {
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       child: ListTile(
         leading: item.image != null && item.image!.isNotEmpty
             ? Image.network(
-          item.image!,
-          width: 60,
-          height: 60,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) =>
-          const Icon(Icons.fastfood),
-        )
+                item.image!,
+                width: 60,
+                height: 60,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const Icon(Icons.fastfood),
+              )
             : const Icon(Icons.fastfood),
         title: Text(item.name),
-        subtitle:
-        Text("${item.calories.toStringAsFixed(0)} cal"),
+        subtitle: Text('${item.calories.toStringAsFixed(0)} cal'),
         onTap: () {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) =>
-                  FoodDetailScreen(foodId: item.foodId),
+              builder: (_) => FoodDetailScreen(foodId: item.foodId),
             ),
           );
         },

@@ -1,21 +1,31 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../../models/Food.dart';
-import '../../component/FoodItemCard.dart';
+import '../../widgets/FoodItemCard.dart';
 import '../FoodDetailScreen.dart';
 import 'FoodFormScreen.dart';
+import '../../controllers/FoodController.dart';
+import '../../controllers/FoodCategoryController.dart';
+import '../../models/FoodCategory.dart';
 
 class FoodManagementScreen extends StatefulWidget {
   const FoodManagementScreen({super.key});
 
   @override
-  State<FoodManagementScreen> createState() => _FoodManagementScreenState();
+  State<FoodManagementScreen> createState() =>
+      _FoodManagementScreenState();
 }
 
-class _FoodManagementScreenState extends State<FoodManagementScreen> {
+class _FoodManagementScreenState
+    extends State<FoodManagementScreen> {
+
+  final FoodController _controller = FoodController();
+  final FoodCategoryController _categoryController =
+  FoodCategoryController();
 
   List<Food> foods = [];
   bool loading = true;
+  List<FoodCategory> categories = [];
+  bool loadingCategories = true;
 
   int currentPage = 0;
   final int pageSize = 10;
@@ -23,75 +33,83 @@ class _FoodManagementScreenState extends State<FoodManagementScreen> {
   double fabX = 300;
   double fabY = 450;
 
-  /// FIX: biến search
   bool isSearching = false;
-  TextEditingController searchController = TextEditingController();
+  TextEditingController searchController =
+  TextEditingController();
   List<Food> filteredFoods = [];
+  String selectedCategoryId = "all";
 
   @override
   void initState() {
     super.initState();
+    loadCategories();
     loadFoods();
   }
 
+  Future<void> loadCategories() async {
+    final list = await _categoryController.getAllCategories();
+    if (!mounted) return;
+
+    setState(() {
+      categories = list;
+      loadingCategories = false;
+    });
+    applyFilters();
+  }
+
+  // Tải toàn bộ danh sách món ăn từ hệ thống
   Future<void> loadFoods() async {
-
-    final snapshot =
-    await FirebaseFirestore.instance.collection("food").get();
-
-    foods = snapshot.docs
-        .map((e) => Food.fromMap(e.data(), e.id))
-        .toList();
-
-    /// FIX: ban đầu hiển thị toàn bộ
-    filteredFoods = foods;
+    foods = await _controller.getAllFoods();
+    if (!mounted) return;
 
     setState(() {
       loading = false;
     });
+    applyFilters();
   }
 
-  Future<void> deleteFood(String id) async {
-
-    await FirebaseFirestore.instance
-        .collection("food")
-        .doc(id)
-        .delete();
-
-    loadFoods();
-  }
-
-  /// FIX: search trong danh sách
-  void searchFood(String keyword) {
-
-    final value = keyword.toLowerCase();
+  void applyFilters() {
+    final keyword = searchController.text.trim().toLowerCase();
 
     setState(() {
-
       filteredFoods = foods.where((food) {
+        final matchesSearch = food.name.toLowerCase().contains(keyword) ||
+            (food.englishName ?? "").toLowerCase().contains(keyword);
 
-        return food.name.toLowerCase().contains(value) ||
-            (food.englishName ?? "").toLowerCase().contains(value);
+        final matchesCategory = selectedCategoryId == "all" ||
+            food.categoryId == selectedCategoryId;
 
+        return matchesSearch && matchesCategory;
       }).toList();
 
       currentPage = 0;
-
     });
   }
 
-  List<Food> get paginatedFoods {
+  // Xóa một món ăn theo ID
+  Future<void> deleteFood(String id) async {
+    await _controller.deleteFood(id);
+    loadFoods();
+  }
 
+  // Lọc món ăn theo từ khóa tìm kiếm
+  void searchFood(String keyword) {
+    applyFilters();
+  }
+
+  // Danh sách món ăn của trang hiện tại
+  List<Food> get paginatedFoods {
     int start = currentPage * pageSize;
     int end = start + pageSize;
 
     if (start >= filteredFoods.length) return [];
-
-    if (end > filteredFoods.length) end = filteredFoods.length;
+    if (end > filteredFoods.length)
+      end = filteredFoods.length;
 
     return filteredFoods.sublist(start, end);
   }
 
+  // Tổng số trang hiện có
   int get totalPages =>
       (filteredFoods.length / pageSize).ceil();
 
@@ -118,39 +136,40 @@ class _FoodManagementScreenState extends State<FoodManagementScreen> {
 
                   const SizedBox(height: 10),
 
-                  /// HEADER
+                  // Thanh tiêu đề và ô tìm kiếm
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding:
+                    const EdgeInsets.symmetric(horizontal: 16),
 
                     child: Row(
                       children: [
 
                         GestureDetector(
                           onTap: () => Navigator.pop(context),
-                          child: const Icon(Icons.chevron_left, size: 28),
+                          child: const Icon(Icons.chevron_left,
+                              size: 28),
                         ),
 
                         const SizedBox(width: 10),
 
-                        /// FIX: khi search thì hiện input
                         Expanded(
                           child: isSearching
                               ? TextField(
-
                             controller: searchController,
                             autofocus: true,
                             onChanged: searchFood,
-
                             decoration: InputDecoration(
                               hintText: "Tìm món ăn...",
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(20),
+                                borderRadius:
+                                BorderRadius.circular(20),
                                 borderSide: BorderSide.none,
                               ),
                               filled: true,
                               fillColor: Colors.white,
                               contentPadding:
-                              const EdgeInsets.symmetric(horizontal: 16),
+                              const EdgeInsets.symmetric(
+                                  horizontal: 16),
                             ),
                           )
                               : const Center(
@@ -158,7 +177,8 @@ class _FoodManagementScreenState extends State<FoodManagementScreen> {
                               "Quản lý món ăn",
                               style: TextStyle(
                                 fontSize: 22,
-                                fontWeight: FontWeight.bold,
+                                fontWeight:
+                                FontWeight.bold,
                               ),
                             ),
                           ),
@@ -166,9 +186,7 @@ class _FoodManagementScreenState extends State<FoodManagementScreen> {
 
                         const SizedBox(width: 10),
 
-                        /// FIX: icon search toggle
                         GestureDetector(
-
                           onTap: () {
 
                             setState(() {
@@ -177,7 +195,7 @@ class _FoodManagementScreenState extends State<FoodManagementScreen> {
 
                                 isSearching = false;
                                 searchController.clear();
-                                filteredFoods = foods;
+                                applyFilters();
 
                               } else {
 
@@ -190,28 +208,120 @@ class _FoodManagementScreenState extends State<FoodManagementScreen> {
                           },
 
                           child: Icon(
-                            isSearching ? Icons.close : Icons.search,
+                            isSearching
+                                ? Icons.close
+                                : Icons.search,
                             size: 26,
                           ),
                         ),
 
+                        const SizedBox(width: 8),
+
+                        GestureDetector(
+                          onTap: loadingCategories
+                              ? null
+                              : () async {
+                                  final value = await showModalBottomSheet<String>(
+                                    context: context,
+                                    backgroundColor: Colors.transparent,
+                                    isScrollControlled: false,
+                                    builder: (context) {
+                                      return Container(
+                                        margin: const EdgeInsets.all(12),
+                                        padding: const EdgeInsets.only(top: 12, bottom: 20),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(24),
+                                        ),
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Container(
+                                              width: 42,
+                                              height: 4,
+                                              decoration: BoxDecoration(
+                                                color: Colors.grey.shade300,
+                                                borderRadius: BorderRadius.circular(10),
+                                              ),
+                                            ),
+                                            const SizedBox(height: 12),
+                                            const Text(
+                                              "Chọn phân loại",
+                                              style: TextStyle(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Flexible(
+                                              child: ListView(
+                                                shrinkWrap: true,
+                                                children: [
+                                                  ListTile(
+                                                    title: const Text("Tất cả "),
+                                                    onTap: () => Navigator.pop(context, "all"),
+                                                  ),
+                                                  ...categories.map((category) {
+                                                    return ListTile(
+                                                      title: Text(category.name),
+                                                      onTap: () => Navigator.pop(context, category.id),
+                                                    );
+                                                  }),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    },
+                                  );
+
+                                  if (value != null) {
+                                    setState(() {
+                                      selectedCategoryId = value;
+                                    });
+                                    applyFilters();
+                                  }
+                                },
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            child: Icon(
+                              selectedCategoryId == "all"
+                                  ? Icons.filter_list
+                                  : Icons.filter_alt,
+                              size: 26,
+                              color: selectedCategoryId == "all"
+                                  ? Colors.black87
+                                  : const Color(0xFF00C569),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
 
                   const SizedBox(height: 10),
 
-                  /// LIST FOOD
+                  // Danh sách món ăn
                   Expanded(
                     child: loading
-                        ? const Center(child: CircularProgressIndicator())
+                        ? const Center(
+                        child:
+                        CircularProgressIndicator())
+                        : filteredFoods.isEmpty
+                        ? const Center(
+                      child: Text("Không có món ăn phù hợp"),
+                    )
                         : ListView.builder(
-                      padding: const EdgeInsets.all(12),
-                      itemCount: paginatedFoods.length,
+                      padding:
+                      const EdgeInsets.all(12),
+                      itemCount:
+                      paginatedFoods.length,
 
                       itemBuilder: (context, index) {
 
-                        final food = paginatedFoods[index];
+                        final food =
+                        paginatedFoods[index];
 
                         return FoodItemCard(
 
@@ -220,24 +330,30 @@ class _FoodManagementScreenState extends State<FoodManagementScreen> {
                           image: food.image,
                           calories: food.calories,
 
-                          /// mở trang chi tiết
                           onTap: () {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => FoodDetailScreen(foodId: food.id),
+                                builder: (_) =>
+                                    FoodDetailScreen(
+                                        foodId:
+                                        food.id),
                               ),
                             );
                           },
 
-                          /// menu edit / delete
-                          trailing: PopupMenuButton<int>(
+                          trailing:
+                          PopupMenuButton<int>(
 
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                            shape:
+                            RoundedRectangleBorder(
+                              borderRadius:
+                              BorderRadius.circular(
+                                  12),
                             ),
 
-                            itemBuilder: (context) => [
+                            itemBuilder:
+                                (context) => [
 
                               const PopupMenuItem(
                                 value: 1,
@@ -245,7 +361,8 @@ class _FoodManagementScreenState extends State<FoodManagementScreen> {
                                   children: [
                                     Icon(Icons.edit),
                                     SizedBox(width: 10),
-                                    Text("Chỉnh sửa"),
+                                    Text(
+                                        "Chỉnh sửa"),
                                   ],
                                 ),
                               ),
@@ -258,12 +375,13 @@ class _FoodManagementScreenState extends State<FoodManagementScreen> {
                                     SizedBox(width: 10),
                                     Text(
                                       "Xóa",
-                                      style: TextStyle(color: Colors.red),
+                                      style: TextStyle(
+                                          color:
+                                          Colors.red),
                                     ),
                                   ],
                                 ),
                               ),
-
                             ],
 
                             onSelected: (value) {
@@ -273,9 +391,14 @@ class _FoodManagementScreenState extends State<FoodManagementScreen> {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (_) => FoodFormScreen(food: food),
+                                    builder: (_) =>
+                                        FoodFormScreen(
+                                            food:
+                                            food),
                                   ),
-                                ).then((_) => loadFoods());
+                                ).then(
+                                        (_) =>
+                                        loadFoods());
 
                               }
 
@@ -287,18 +410,19 @@ class _FoodManagementScreenState extends State<FoodManagementScreen> {
 
                             },
 
-                            child: const Icon(Icons.more_vert),
-
+                            child:
+                            const Icon(Icons.more_vert),
                           ),
                         );
                       },
                     ),
                   ),
 
-                  /// PAGINATION
+                  // Phân trang danh sách
                   if (!loading)
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
+                      padding:
+                      const EdgeInsets.only(bottom: 10),
 
                       child: Row(
                         mainAxisAlignment:
@@ -307,8 +431,10 @@ class _FoodManagementScreenState extends State<FoodManagementScreen> {
                         children: [
 
                           IconButton(
-                            icon: const Icon(Icons.chevron_left),
-                            onPressed: currentPage > 0
+                            icon: const Icon(
+                                Icons.chevron_left),
+                            onPressed:
+                            currentPage > 0
                                 ? () {
                               setState(() {
                                 currentPage--;
@@ -320,12 +446,16 @@ class _FoodManagementScreenState extends State<FoodManagementScreen> {
                           Text(
                             "Trang ${currentPage + 1} / $totalPages",
                             style: const TextStyle(
-                                fontWeight: FontWeight.bold),
+                                fontWeight:
+                                FontWeight.bold),
                           ),
 
                           IconButton(
-                            icon: const Icon(Icons.chevron_right),
-                            onPressed: currentPage < totalPages - 1
+                            icon: const Icon(
+                                Icons.chevron_right),
+                            onPressed:
+                            currentPage <
+                                totalPages - 1
                                 ? () {
                               setState(() {
                                 currentPage++;
@@ -333,17 +463,15 @@ class _FoodManagementScreenState extends State<FoodManagementScreen> {
                             }
                                 : null,
                           ),
-
                         ],
                       ),
                     ),
-
                 ],
               ),
             ),
           ),
 
-          /// FLOAT BUTTON
+          // Nút thêm món ăn
           Positioned(
             left: fabX,
             top: fabY,
@@ -366,7 +494,8 @@ class _FoodManagementScreenState extends State<FoodManagementScreen> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const FoodFormScreen(),
+                      builder: (_) =>
+                      const FoodFormScreen(),
                     ),
                   ).then((_) => loadFoods());
 

@@ -1,11 +1,8 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../component/Footer.dart';
+import '../controllers/HomeController.dart';
+import '../widgets/Footer.dart';
 import 'SearchFoodScreen.dart';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -15,12 +12,10 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  final HomeController _controller = HomeController();
 
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
-
-  String name = "";
-  String goal = "";
+  String name = '';
+  String goal = '';
   int calories = 0;
 
   double protein = 0;
@@ -45,157 +40,41 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    loadUserData();
-    loadTodayMeals();
+    _loadData();
   }
 
-  // Load user
-  void loadUserData() async {
-
-    if (_auth.currentUser == null) return;
-
-    String uid = _auth.currentUser!.uid;
-
-    DocumentSnapshot doc =
-    await _db.collection("users").doc(uid).get();
-
-    if (!doc.exists) return;
-
-    Map<String, dynamic> data =
-    doc.data() as Map<String, dynamic>;
+  // Tải dữ liệu trang chủ từ controller và cập nhật UI.
+  Future<void> _loadData() async {
+    final data = await _controller.loadHomeData();
 
     setState(() {
-      name = data["name"] ?? "";
-      goal = data["goal"] ?? "";
-    });
-    if (data["nutrition"] != null) {
+      name = data['name'];
+      goal = data['goal'];
+      calories = data['calories'];
 
-      // Nếu đã có nutrition
+      protein = data['protein'];
+      carb = data['carb'];
+      fat = data['fat'];
 
-      final nutrition = data["nutrition"];
+      breakfastFoods = List<String>.from(data['breakfastFoods']);
+      lunchFoods = List<String>.from(data['lunchFoods']);
+      dinnerFoods = List<String>.from(data['dinnerFoods']);
 
-      setState(() {
-        calories = nutrition["Calories"].round();
-        protein = nutrition["Protein"]?.toDouble() ?? 0;
-        carb = nutrition["carb"]?.toDouble() ?? 0;
-        fat = nutrition["Fat"]?.toDouble() ?? 0;
-      });
+      breakfastCal = data['breakfastCal'];
+      lunchCal = data['lunchCal'];
+      dinnerCal = data['dinnerCal'];
 
-      return;
-    }
-    //Chưa có gọi api
-    final response = await http.post(
-      // Uri.parse("https://smartmeal-ai-wp3g.onrender.com/recommend"),
-      Uri.parse("http://10.0.2.2:8000/recommend"),
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode({
-        "age": data["age"],
-        "gender": data["gender"],
-        "height": data["height"],
-        "weight": data["weight"],
-        "activity": data["activity"],
-        "disease": data["diseases"]?.isNotEmpty == true
-            ? data["diseases"][0]
-            : "None",
-        "breakfast_cal": 0,
-        "lunch_cal": 0,
-        "dinner_cal": 0,
-      }),
-    );
-
-    if (response.statusCode != 200) return;
-
-    final result = jsonDecode(response.body);
-    final nutrition = result["nutrition"];
-
-    setState(() {
-
-      calories = nutrition["Calories"].round();
-
-      protein = nutrition["Protein"]?.toDouble() ?? 0;
-      carb = nutrition["carb"]?.toDouble() ?? 0;
-      fat = nutrition["Fat"]?.toDouble() ?? 0;
-    });
-    await _db.collection("users")
-        .doc(uid)
-        .update({
-      "nutrition": nutrition
+      eatenProtein = data['eatenProtein'];
+      eatencarb = data['eatencarb'];
+      eatenFat = data['eatenFat'];
     });
   }
-  // Load nhật kí ăn uống
-  void loadTodayMeals() async {
 
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
-    String today = DateTime.now().toString().substring(0,10);
-
-    final snapshot = await FirebaseFirestore.instance
-        .collection("food_diary")
-        .where("userId", isEqualTo: user.uid)
-        .where("date", isEqualTo: today)
-        .get();
-
-    breakfastFoods.clear();
-    lunchFoods.clear();
-    dinnerFoods.clear();
-
-    breakfastCal = 0;
-    lunchCal = 0;
-    dinnerCal = 0;
-
-    eatenProtein = 0;
-    eatencarb = 0;
-    eatenFat = 0;
-
-    for (var doc in snapshot.docs) {
-
-      String foodId = doc["foodId"];
-      String meal = doc["meal"];
-
-      final foodDoc = await FirebaseFirestore.instance
-          .collection("food")
-          .doc(foodId)
-          .get();
-
-      final food = foodDoc.data();
-      if (food == null) continue;
-
-      String foodName = food["name"] ?? "";
-
-      double cal = (food["calories"] ?? 0).toDouble();
-      double p = (food["protein"] ?? 0).toDouble();
-      double c = (food["carb"] ?? 0).toDouble();
-      double f = (food["fat"] ?? 0).toDouble();
-
-      eatenProtein += p;
-      eatencarb += c;
-      eatenFat += f;
-
-      if (meal == "breakfast") {
-        breakfastFoods.add(foodName);
-        breakfastCal += cal;
-      }
-      else if (meal == "lunch") {
-        lunchFoods.add(foodName);
-        lunchCal += cal;
-      }
-      else if (meal == "dinner") {
-        dinnerFoods.add(foodName);
-        dinnerCal += cal;
-      }
-    }
-
-    setState(() {});
-  }
-
-  // Ui
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
         children: [
-
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -204,71 +83,117 @@ class _HomeScreenState extends State<HomeScreen> {
                 end: Alignment.bottomCenter,
               ),
             ),
-
             child: Column(
               children: [
-
                 Expanded(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(24),
-
+                    padding: const EdgeInsets.only(top: 8, bottom: 24),
                     child: Column(
                       children: [
-
-                        const SizedBox(height: 40),
-
-                        Text(
-                          "Chào buổi sáng, $name!",
-                          style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold),
+                        // Header section with user info
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
+                          child: RichText(
+                            text: TextSpan(
+                              children: [
+                                const TextSpan(
+                                  text: 'Chào buổi sáng, ',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xFF888888),
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                                TextSpan(
+                                  text: name,
+                                  style: const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF333333),
+                                  ),
+                                ),
+                                const TextSpan(
+                                  text: ' 👋',
+                                  style: TextStyle(
+                                    fontSize: 24,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-
-                        const SizedBox(height: 20),
-
-                        buildNutritionCircle(),
-
-                        const SizedBox(height: 30),
-
-                        buildMealCard(
-                          icon: Icons.breakfast_dining,
-                          title: "Bữa sáng",
-                          recommend: (calories * 0.3).round(),
-                          eaten: breakfastCal,
-                          foods: breakfastFoods,
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: _buildNutritionCircle(),
                         ),
-
-                        buildMealCard(
-                          icon: Icons.wb_sunny,
-                          title: "Bữa trưa",
-                          recommend: (calories * 0.4).round(),
-                          eaten: lunchCal,
-                          foods: lunchFoods,
+                        const SizedBox(height: 32),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 5,
+                                    height: 24,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF00C569),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  const Text(
+                                    'Tiến độ hôm nay',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF333333),
+                                      letterSpacing: 0.3,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 14),
+                              _buildMealCard(
+                                icon: Icons.breakfast_dining,
+                                title: 'Bữa sáng',
+                                recommend: (calories * 0.3).round(),
+                                eaten: breakfastCal,
+                                foods: breakfastFoods,
+                              ),
+                              _buildMealCard(
+                                icon: Icons.wb_sunny,
+                                title: 'Bữa trưa',
+                                recommend: (calories * 0.4).round(),
+                                eaten: lunchCal,
+                                foods: lunchFoods,
+                              ),
+                              _buildMealCard(
+                                icon: Icons.nightlight_round,
+                                title: 'Bữa tối',
+                                recommend: (calories * 0.3).round(),
+                                eaten: dinnerCal,
+                                foods: dinnerFoods,
+                              ),
+                            ],
+                          ),
                         ),
-
-                        buildMealCard(
-                          icon: Icons.nightlight_round,
-                          title: "Bữa tối",
-                          recommend: (calories * 0.3).round(),
-                          eaten: dinnerCal,
-                          foods: dinnerFoods,
-                        ),
-
                         const SizedBox(height: 80),
                       ],
                     ),
                   ),
                 ),
-
-                Footer(currentIndex: 0),
+                const Footer(currentIndex: 0),
               ],
             ),
           ),
-
           Positioned(
             left: fabX,
             top: fabY,
             child: GestureDetector(
+              // Cho phép kéo thả vị trí nút thêm món ăn trên màn hình.
               onPanUpdate: (details) {
                 setState(() {
                   fabX += details.delta.dx;
@@ -284,7 +209,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     MaterialPageRoute(
                       builder: (_) => const SearchFoodScreen(),
                     ),
-                  );
+                  ).then((_) => _loadData());
                 },
                 child: const Icon(
                   Icons.add_circle,
@@ -299,269 +224,370 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget buildNutritionCircle() {
-
-    double proteinGoal = calories * 0.15 / 4;
-    double carbGoal = calories * 0.55 / 4;
-    double fatGoal = calories * 0.30 / 9;
-
-    return SizedBox(
-      width: 360,
-      height: 260,
-
-      child: Stack(
-        alignment: Alignment.center,
-
-        children: [
-
-          Container(
-            width: 180,
-            height: 180,
-
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: const Color(0xFFF2FDF7),
-              border: Border.all(
-                color: const Color(0xFFC7EEDB),
-                width: 3,
+  // Hiển thị vòng tròn calories tổng và các thanh tiến trình dinh dưỡng.
+  Widget _buildNutritionCircle() {
+    return Column(
+      children: [
+        Container(
+          width: 200,
+          height: 200,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: const LinearGradient(
+              colors: [Color(0xFFF5FFFE), Color(0xFFFAFFFC)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            border: Border.all(
+              color: const Color(0xFFB8ECE0),
+              width: 4,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF00C569).withValues(alpha: 0.12),
+                blurRadius: 16,
+                spreadRadius: 3,
+                offset: const Offset(0, 6),
               ),
-            ),
-
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-
-                Text(
-                  "$calories",
+            ],
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                calories.toString(),
+                style: const TextStyle(
+                  fontSize: 48,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF00C569),
+                ),
+              ),
+              const SizedBox(height: 2),
+              const Text(
+                'Calories',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF666666),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00C569).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  'Mục tiêu: $goal',
                   style: const TextStyle(
-                      fontSize: 40,
-                      fontWeight: FontWeight.bold),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF00C569),
+                  ),
                 ),
-
-                const SizedBox(height: 4),
-
-                const Text(
-                  "Calories",
-                  style: TextStyle(color: Colors.grey),
-                ),
-
-                const SizedBox(height: 2),
-
-                Text(
-                  "Goal: $goal",
-                  style: const TextStyle(
-                      fontSize: 11,
-                      color: Colors.grey),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-
-          Positioned(
-            left: 0,
-            top: 0,
-            child: macroBar("carb", eatencarb, carb),
-          ),
-
-          Positioned(
-            right: 0,
-            top: 30,
-            child: macroBar("Protein", eatenProtein, protein),
-          ),
-
-          Positioned(
-            left: 0,
-            bottom: 30,
-            child: macroBar("Fat", eatenFat, fat),
-          ),
-
-        ],
-      ),
+        ),
+        const SizedBox(height: 28),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(child: _macroBar('Carb', eatencarb, carb)),
+            const SizedBox(width: 20),
+            Expanded(child: _macroBar('Protein', eatenProtein, protein)),
+            const SizedBox(width: 20),
+            Expanded(child: _macroBar('Fat', eatenFat, fat)),
+          ],
+        ),
+      ],
     );
   }
 
-  Widget macroBar(
-      String title,
-      double value,
-      double goal,
-      {String unit = "g"}
-      ) {
-
+  // Tạo thanh tiến trình cho một chỉ số macro và giới hạn phần trăm tối đa 100%.
+  Widget _macroBar(String title, double value, double goal, {String unit = 'g'}) {
     double percent = goal == 0 ? 0 : value / goal;
-    if (percent > 1) percent = 1;
+    if (percent > 1) {
+      percent = 1;
+    }
+
+    Color barColor = value <= goal
+        ? const Color(0xFF00C569)
+        : const Color(0xFFFF6B6B);
 
     return SizedBox(
       width: 70,
-
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-
           Text(
             title,
             style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 13),
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
+              color: Color(0xFF333333),
+            ),
           ),
-
-          const SizedBox(height: 4),
-
+          const SizedBox(height: 8),
           Container(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(25),
+              borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.35), // tăng bóng cho dễ thấy
-                  blurRadius: 8,
-                  spreadRadius: 1,
-                  offset: const Offset(0, 4),
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 6,
+                  spreadRadius: 0,
+                  offset: const Offset(0, 3),
                 ),
               ],
             ),
-
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(25),
-
+              borderRadius: BorderRadius.circular(20),
               child: Container(
-                height: 12,
+                height: 14,
                 width: double.infinity,
-                color: Colors.grey[300],
-
+                color: const Color(0xFFEEEEEE),
                 child: Stack(
                   children: [
-
                     FractionallySizedBox(
                       widthFactor: percent,
-
                       child: Container(
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                           gradient: LinearGradient(
-                            colors: [
-                              Color(0xFF79EEF2),
-                              Color(0xFF78F09C),
-                            ],
+                            colors: value <= goal
+                                ? [const Color(0xFF79EEF2), const Color(0xFF78F09C)]
+                                : [const Color(0xFFFF8A80), const Color(0xFFFF6B6B)],
                           ),
                         ),
                       ),
                     ),
-
                   ],
                 ),
               ),
             ),
           ),
-
-          const SizedBox(height: 4),
-
+          const SizedBox(height: 6),
           Text(
-            "${value.toStringAsFixed(0)}/${goal.toStringAsFixed(0)} $unit",
+            '${value.toStringAsFixed(0)}/${goal.toStringAsFixed(0)}$unit',
             style: const TextStyle(
-                fontSize: 12,
-                color: Colors.grey),
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF888888),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget buildMealCard({
+  // Hiển thị thẻ thông tin của từng bữa ăn kèm calories đã ăn và còn lại/vượt.
+  Widget _buildMealCard({
     required IconData icon,
     required String title,
     required int recommend,
     required double eaten,
     required List<String> foods,
   }) {
-
     String subtitle;
+    bool isOver = eaten > recommend;
+    double percent = recommend == 0 ? 0 : eaten / recommend;
+    if (percent > 1) percent = 1;
 
     if (eaten == 0) {
-      subtitle = "Khuyến nghị: $recommend kcal";
+      subtitle = 'Khuyến nghị: $recommend kcal';
     } else {
-
-      double remain = recommend - eaten;
-
+      final double remain = recommend - eaten;
       subtitle =
-      "${eaten.toStringAsFixed(0)} kcal • "
-          "${remain >= 0 ? "Còn lại" : "Vượt quá"} "
-          "${remain.abs().toStringAsFixed(0)} kcal";
+          '${eaten.toStringAsFixed(0)} / $recommend kcal • '
+          '${remain >= 0 ? 'Còn lại' : 'Vượt'} '
+          '${remain.abs().toStringAsFixed(0)} kcal';
     }
+
+    const Gradient iconGradient = LinearGradient(
+      colors: [Color(0xFF79EEF2), Color(0xFF78F09C)],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(16),
-
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
+        gradient: const LinearGradient(
+          colors: [Color(0xFFFFFFFF), Color(0xFFF7FCF9)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: const Color(0xFFDFF3E6),
+          width: 1,
+        ),
+        boxShadow: [
           BoxShadow(
-            color: Colors.black12,
-            blurRadius: 6,
-          )
+            color: const Color(0xFF3FA26A).withValues(alpha: 0.08),
+            blurRadius: 14,
+            spreadRadius: -2,
+            offset: const Offset(0, 6),
+          ),
         ],
       ),
-
-      child: Row(
+      child: Column(
         children: [
-
-          Container(
-            width: 45,
-            height: 45,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE8F8EF),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: const Color(0xFF00C569)),
-          ),
-
-          const SizedBox(width: 14),
-
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-
-                Text(
-                  title,
-                  style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold),
+          Row(
+            children: [
+              ShaderMask(
+                shaderCallback: (bounds) => iconGradient.createShader(bounds),
+                child: Icon(
+                  icon,
+                  color: Colors.white,
+                  size: 30,
                 ),
-
-                if (foods.isNotEmpty)
-                  Text(
-                    foods.join(", "),
-                    style: const TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF252525),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    if (foods.isNotEmpty)
+                      Text(
+                        foods.join(', '),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF707070),
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    if (foods.isEmpty)
+                      const Text(
+                        'Chưa có dữ liệu',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFFB0B0B0),
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    const SizedBox(height: 5),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF8B8B8B),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(999),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const SearchFoodScreen(),
+                      ),
+                    ).then((_) => _loadData());
+                  },
+                  child: Ink(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF11CF7A), Color(0xFF00B86B)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF00C569).withValues(alpha: 0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.add,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                   ),
-
-                const SizedBox(height: 4),
-
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-
-          IconButton(
-            icon: const Icon(
-              Icons.add_circle_outline,
-              color: Color(0xFF00C569),
-            ),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const SearchFoodScreen(),
+          if (eaten > 0) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: isOver
+                      ? const Color(0xFFFFCDD2)
+                      : const Color(0xFFE8F5E9),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-              ).then((_) => loadTodayMeals());
-            },
-          )
+                child: Text(
+                  '${eaten.toStringAsFixed(0)} kcal',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: isOver
+                        ? const Color(0xFFC62828)
+                        : const Color(0xFF2E7D32),
+                  ),
+                ),
+              ),
+            ),
+          ],
+          if (eaten > 0) ...[
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                height: 6,
+                width: double.infinity,
+                color: const Color(0xFFEEEEEE),
+                child: Stack(
+                  children: [
+                    FractionallySizedBox(
+                      widthFactor: percent,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: isOver
+                                ? [const Color(0xFFFF8A80), const Color(0xFFFF6B6B)]
+                                : [const Color(0xFF79EEF2), const Color(0xFF78F09C)],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
