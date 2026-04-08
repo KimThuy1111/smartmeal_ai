@@ -18,11 +18,9 @@ class SuggestedMenu {
       "date": date,
       "menu": menu,
       "liked": liked,
-      "createdAt": DateTime.now(),
     };
   }
 
-  /// FIX: đọc dữ liệu từ firestore
   factory SuggestedMenu.fromMap(Map<String, dynamic> data) {
 
     Map<String,List<String>> parsedMenu = {};

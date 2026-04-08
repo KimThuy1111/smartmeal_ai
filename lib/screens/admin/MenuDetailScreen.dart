@@ -1,27 +1,31 @@
 import 'package:flutter/material.dart';
 import '../../models/User.dart';
 import '../FoodDetailScreen.dart';
-import '../../component/FoodItemCard.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../widgets/FoodItemCard.dart';
+import '../../controllers/FoodController.dart';
 
 class MenuDetailScreen extends StatefulWidget {
 
   final User user;
-  final Map<String,List<String>> menu;
+  final Map<String, List<String>> menu;
 
   const MenuDetailScreen({
     super.key,
     required this.user,
-    required this.menu
+    required this.menu,
   });
 
   @override
-  State<MenuDetailScreen> createState() => _MenuDetailScreenState();
+  State<MenuDetailScreen> createState() =>
+      _MenuDetailScreenState();
 }
 
-class _MenuDetailScreenState extends State<MenuDetailScreen> {
+class _MenuDetailScreenState
+    extends State<MenuDetailScreen> {
 
-  Map<String,List<Map<String,dynamic>>> foods = {};
+  final FoodController _controller = FoodController();
+
+  Map<String, List<Map<String, dynamic>>> foods = {};
 
   @override
   void initState() {
@@ -29,31 +33,9 @@ class _MenuDetailScreenState extends State<MenuDetailScreen> {
     loadFoods();
   }
 
+  // Tải danh sách món ăn theo thực đơn đã chọn
   Future<void> loadFoods() async {
-
-    Map<String,List<Map<String,dynamic>>> result = {};
-
-    for(String meal in widget.menu.keys){
-
-      List<Map<String,dynamic>> list = [];
-
-      for(String id in widget.menu[meal]!){
-
-        final doc = await FirebaseFirestore.instance
-            .collection("food")
-            .doc(id)
-            .get();
-
-        if(doc.exists){
-          final data = doc.data()!;
-          data["id"] = doc.id;
-          list.add(data);
-        }
-
-      }
-
-      result[meal] = list;
-    }
+    final result = await _controller.getFoodsByMenu(widget.menu);
 
     setState(() {
       foods = result;
@@ -82,9 +64,10 @@ class _MenuDetailScreenState extends State<MenuDetailScreen> {
     );
   }
 
-  Widget buildMeal(String title,List foods){
+  // Hiển thị danh sách món ăn của từng bữa
+  Widget buildMeal(String title, List<Map<String, dynamic>> foods) {
 
-    if(foods.isEmpty) return const SizedBox();
+    if (foods.isEmpty) return const SizedBox();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -93,13 +76,14 @@ class _MenuDetailScreenState extends State<MenuDetailScreen> {
         Text(
           title,
           style: const TextStyle(
-              fontSize:18,
-              fontWeight: FontWeight.bold),
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
         ),
 
-        const SizedBox(height:10),
+        const SizedBox(height: 10),
 
-        ...foods.map((food){
+        ...foods.map((food) {
 
           return FoodItemCard(
 
@@ -108,12 +92,13 @@ class _MenuDetailScreenState extends State<MenuDetailScreen> {
             image: food["image"],
             calories: food["calories"].toDouble(),
 
-            onTap: (){
+            onTap: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (_) =>
-                      FoodDetailScreen(foodId: food["id"]),
+                      FoodDetailScreen(
+                          foodId: food["id"]),
                 ),
               );
             },
@@ -122,7 +107,7 @@ class _MenuDetailScreenState extends State<MenuDetailScreen> {
 
           );
 
-        })
+        }).toList()
 
       ],
     );

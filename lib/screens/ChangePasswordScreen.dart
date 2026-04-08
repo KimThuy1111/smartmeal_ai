@@ -1,5 +1,5 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../controllers/AuthController.dart';
 import '../utils/notifier.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
@@ -11,7 +11,7 @@ class ChangePasswordScreen extends StatefulWidget {
 
 class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
 
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final AuthController _authController = AuthController();
 
   final currentPassController = TextEditingController();
   final newPassController = TextEditingController();
@@ -19,7 +19,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
 
   bool showPass = true;
 
-  // Hàm đổi mật khẩu
+  // Kiểm tra thông tin và thực hiện đổi mật khẩu
   Future<void> changePassword() async {
 
     String currentPass = currentPassController.text.trim();
@@ -38,33 +38,22 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
 
     try {
 
-      User? user = _auth.currentUser;
-
-      if (user == null) return;
-
-      String email = user.email!;
-
-      // xác thực lại tài khoản
-      AuthCredential credential = EmailAuthProvider.credential(
-        email: email,
-        password: currentPass,
+      await _authController.changePassword(
+        currentPass: currentPass,
+        newPass: newPass,
       );
 
-      await user.reauthenticateWithCredential(credential);
-
-      // cập nhật password
-      await user.updatePassword(newPass);
-
       Notifier.showNotify(context, "Đổi mật khẩu thành công");
-
       Navigator.pop(context);
 
-    } on FirebaseAuthException catch (e) {
+    } catch (e) {
 
       String message = "Đổi mật khẩu thất bại";
 
-      if (e.code == 'wrong-password') {
-        message = "Mật khẩu hiện tại không đúng";
+      if (e is Exception) {
+        if (e.toString().contains('wrong-password')) {
+          message = "Mật khẩu hiện tại không đúng";
+        }
       }
 
       Notifier.showError(context, message);
@@ -91,7 +80,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
             child: Column(
               children: [
 
-                /// HEADER
+                // Thanh tiêu đề
                 Row(
                   children: [
 
