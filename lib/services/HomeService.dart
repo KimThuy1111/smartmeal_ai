@@ -8,6 +8,34 @@ class HomeService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
+  /// Lấy JWT access token từ backend dựa trên Firebase user hiện tại.
+  Future<String?> _getAccessToken() async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      return null;
+    }
+
+    try {
+      final tokenResponse = await http.post(
+        Uri.parse('http://10.0.2.2:8000/token'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'firebase_uid': user.uid,
+          'email': user.email,
+        }),
+      );
+
+      if (tokenResponse.statusCode == 200) {
+        final data = jsonDecode(tokenResponse.body) as Map<String, dynamic>;
+        return data['access_token'] as String?;
+      }
+    } catch (_) {
+      return null;
+    }
+
+    return null;
+  }
+
   /// Tải dữ liệu hồ sơ và nhu cầu dinh dưỡng của người dùng cho màn hình Home.
   Future<Map<String, dynamic>> loadUserData() async {
     final user = _auth.currentUser;
@@ -22,6 +50,7 @@ class HomeService {
       return {};
     }
 
+    // 1. Hệ thống lấy thông tin người dùng từ Firestore.
     final data = doc.data()!;
     String name = data['name'] ?? '';
     String goal = data['goal'] ?? '';
@@ -31,6 +60,7 @@ class HomeService {
     double carb = 0;
     double fat = 0;
 
+    // 2a. Người dùng đã có thông tin dinh dưỡng trong Firestore.Hệ thống sẽ lấy dữ liệu trực tiếp từ Firestore mà không cần tính toán lại.
     if (data['nutrition'] != null) {
       final nutrition = data['nutrition'];
       calories = nutrition['Calories'].round();
@@ -38,29 +68,41 @@ class HomeService {
       carb = nutrition['carb']?.toDouble() ?? 0;
       fat = nutrition['Fat']?.toDouble() ?? 0;
     } else {
+      final accessToken = await _getAccessToken();
+
+      // 2. Hệ thống gửi request đến API cùng với các thông tin của người dùng.
       final response = await http.post(
         Uri.parse('http://10.0.2.2:8000/tdee'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          if (accessToken != null) 'Authorization': 'Bearer $accessToken',
+        },
         body: jsonEncode({
           'age': data['age'],
           'gender': data['gender'],
           'height': data['height'],
           'weight': data['weight'],
           'activity': data['activity'],
+          'goal': data['goal'] ?? 'Duy trì cân nặng',
           'breakfast_cal': 0,
           'lunch_cal': 0,
           'dinner_cal': 0,
         }),
       );
 
+      // 8. API trả kết quả về cho hệ thống.
       if (response.statusCode == 200) {
+        // 3. API nhận request và tính toán các chỉ số dinh dưỡng.
         final nutrition = jsonDecode(response.body);
         calories = nutrition['Calories'].round();
         protein = nutrition['Protein']?.toDouble() ?? 0;
         carb = nutrition['carb']?.toDouble() ?? 0;
         fat = nutrition['Fat']?.toDouble() ?? 0;
 
+        // 6. Hệ thống lưu kết quả vào Firestore.
         await _db.collection('users').doc(uid).update({'nutrition': nutrition});
+      } else {
+        // 3a. API không phản hồi. Hệ thống sẽ hiển thị dữ liệu rỗng.
       }
     }
 

@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:smartmeal_ai/models/Role.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -20,6 +21,7 @@ class AuthService {
     final String uid = userCredential.user!.uid;
     await _db.collection('users').doc(uid).set({
       'email': email,
+      'role': Role.user,
       'createdAt': FieldValue.serverTimestamp(),
     });
 
@@ -65,12 +67,26 @@ class AuthService {
     final UserCredential userCredential = await _auth.signInWithCredential(credential);
     final User user = userCredential.user!;
     final String uid = user.uid;
-    final DocumentSnapshot doc = await _db.collection('users').doc(uid).get();
+    final userRef = _db.collection('users').doc(uid);
+    final DocumentSnapshot doc = await userRef.get();
+
+    if (!doc.exists) {
+      await userRef.set({
+        'email': user.email,
+        'role': Role.user,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    } else {
+      final data = doc.data() as Map<String, dynamic>?;
+      if (data == null || !data.containsKey('role')) {
+        await userRef.set({'role': Role.user}, SetOptions(merge: true));
+      }
+    }
 
     return {
       'uid': uid,
       'user': user,
-      'doc': doc,
+      'doc': await userRef.get(),
     };
   }
 

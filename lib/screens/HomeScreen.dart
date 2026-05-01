@@ -68,6 +68,8 @@ class _HomeScreenState extends State<HomeScreen> {
       eatencarb = data['eatencarb'];
       eatenFat = data['eatenFat'];
     });
+
+    // 10. Dữ liệu dinh dưỡng sẽ được hiển thị trên trang chủ.
   }
 
   @override

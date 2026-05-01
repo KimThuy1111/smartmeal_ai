@@ -88,7 +88,8 @@ class AuthWrapper extends StatelessWidget {
               return const LoginScreen();
             }
 
-            String role = roleSnapshot.data!["role"];
+            final data = roleSnapshot.data!.data() as Map<String, dynamic>?;
+            final String role = (data?["role"] as String?) ?? Role.user;
 
             // ADMIN
             if (role == Role.admin) {

@@ -139,7 +139,8 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
     setState(() => isLoading = true);
 
     final calories = await _controller.loadTodayCalories();
-    final recent = await _controller.loadRecentFoodHistory();
+    // Lấy danh sách STT các món đã ăn trong 3 ngày qua
+    final recentHistory = await _controller.loadRecentFoodHistory();
     final userData = await _userController.getUserData();
     final excludedFoods = await _controller.getExcludedFoods();
 
@@ -148,7 +149,7 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
       calories['breakfast'] ?? 0,
       calories['lunch'] ?? 0,
       calories['dinner'] ?? 0,
-      recent,
+      recentHistory, // Gửi lịch sử ăn uống thực tế
       excludedFoods,
     );
 
@@ -195,6 +196,8 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
 
     setState(() {
       menu = fullMenu;
+      currentMenuDocId = docId;
+      liked = null;
       isLoading = false;
     });
   }
@@ -220,16 +223,21 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
   // Gửi đánh giá thích/không thích cho thực đơn đang hiển thị.
   Future<void> _rateMenu(bool like) async {
     if (currentMenuDocId == null) {
+      Notifier.showNotify(context, 'Không tìm thấy thực đơn để đánh giá');
       return;
     }
 
-    await FirebaseFirestore.instance
-        .collection('suggested_menus')
-        .doc(currentMenuDocId)
-        .update({'liked': like});
+    try {
+      await FirebaseFirestore.instance
+          .collection('suggested_menus')
+          .doc(currentMenuDocId)
+          .update({'liked': like});
 
-    setState(() => liked = like);
-    Notifier.showNotify(context, 'Đã gửi đánh giá');
+      setState(() => liked = like);
+      Notifier.showNotify(context, 'Đã gửi đánh giá');
+    } catch (_) {
+      Notifier.showNotify(context, 'Gửi đánh giá thất bại');
+    }
   }
 
   // Thêm một món ăn từ thực đơn gợi ý vào nhật ký theo bữa.
@@ -420,7 +428,7 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
             ),
             const SizedBox(width: 12),
             Text(
-              liked! ? 'Bạn đã thích thực đơn này' : 'Bạn không thích thực đơn này',
+              liked! ? 'Thực đơn này phù hợp với bạn' : 'Thực đơn này thực sự phù hợp với bạn',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -464,7 +472,7 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
                   Icon(Icons.favorite_border, color: Colors.white, size: 20),
                   SizedBox(width: 8),
                   Text(
-                    'Thích',
+                    'Phù hợp',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -499,7 +507,7 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
                   Icon(Icons.thumb_down_outlined, color: Colors.grey[700], size: 20),
                   const SizedBox(width: 8),
                   Text(
-                    'Không thích',
+                    'Không phù hợp',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,

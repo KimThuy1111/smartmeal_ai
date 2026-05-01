@@ -24,37 +24,52 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool showConfirmPassword = false;
   bool isLoading = false;
 
-  // Xử lý đăng ký tài khoản, kiểm tra dữ liệu và chuyển sang bước nhập hồ sơ.
   Future<void> _register() async {
+    // 3. Hệ thống kiểm tra dữ liệu.
     final String email = emailController.text.trim();
     final String password = passwordController.text.trim();
     final String confirm = confirmController.text.trim();
     final String name = nameController.text.trim();
 
     if (email.isEmpty || password.isEmpty || name.isEmpty) {
+      // 3a. Nếu người dùng nhập thiếu thông tin, hệ thống yêu cầu nhập đầy đủ.
       Notifier.showError(context, 'Vui lòng nhập đầy đủ thông tin!!!');
       return;
     }
 
+    // 3b. Nếu email sai định dạng, hệ thống thông báo email không hợp lệ.
     if (!_isValidEmail(email)) {
       Notifier.showError(context, 'Email không hợp lệ!!!');
       return;
     }
 
+    // 3c. Nếu mật khẩu không trùng khớp, hệ thống thông báo lỗi.
     if (password != confirm) {
       Notifier.showError(context, 'Mật khẩu không khớp!!!');
+      return;
+    }
+
+    // 3e. Mật khẩu không đủ mạnh, hệ thống yêu cầu người dùng đặt mật khẩu mạnh hơn.
+    if (!_isStrongPassword(password)) {
+      Notifier.showError(
+        context,
+        'Mật khẩu phải có ít nhất 8 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt!!!',
+      );
       return;
     }
 
     try {
       setState(() => isLoading = true);
 
+      // 4. Nếu hợp lệ, hệ thống tạo tài khoản cho người dùng.
       final result = await _authController.register(
         email: email,
         password: password,
       );
+
       final String uid = result['uid'];
 
+      // 6. Hệ thống chuyển sang trang nhập thông tin cá nhân.
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -63,6 +78,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             email: email,
             name: name,
             avatar: 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
+            showRegisterSuccessMessage: true,
           ),
         ),
       );
@@ -83,20 +99,46 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return emailRegex.hasMatch(email);
   }
 
+  bool _isStrongPassword(String password) {
+    if (password.length < 8) {
+      return false;
+    }
+
+    final hasUpper = RegExp(r'[A-Z]').hasMatch(password);
+    final hasLower = RegExp(r'[a-z]').hasMatch(password);
+    final hasDigit = RegExp(r'\d').hasMatch(password);
+    final hasSpecial = RegExp(r'[^A-Za-z0-9]').hasMatch(password);
+
+    return hasUpper && hasLower && hasDigit && hasSpecial;
+  }
+
   String _mapFirebaseAuthError(String code) {
     switch (code) {
+      // 3d. Nếu email đã được sử dụng, hệ thống thông báo tài khoản đã tồn tại.
       case 'email-already-in-use':
         return 'Email đã được sử dụng!!!';
+
+      // 3b. Nếu email sai định dạng, hệ thống thông báo email không hợp lệ.
       case 'invalid-email':
         return 'Email không hợp lệ!!!';
+
+      // 3e. Mật khẩu không đủ mạnh, hệ thống yêu cầu người dùng đặt mật khẩu mạnh hơn.
       case 'weak-password':
-        return 'Mật khẩu quá yếu (tối thiểu 6 ký tự)!!!';
+        return 'Mật khẩu chưa đủ mạnh (ít nhất 8 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt)!!!';
+
+      // 3f / 4d. Không có kết nối Internet, hệ thống thông báo lỗi mạng và yêu cầu kiểm tra lại kết nối.
       case 'network-request-failed':
         return 'Lỗi kết nối mạng, vui lòng kiểm tra Internet!!!';
+
+      // 4e. Nếu hệ thống trả về too-many-requests, thông báo người dùng thử lại sau.
       case 'too-many-requests':
         return 'Bạn thao tác quá nhiều, vui lòng thử lại sau!!!';
+
+      // 4f. Nếu hệ thống trả về operation-not-allowed, thông báo chức năng hiện không khả dụng.
       case 'operation-not-allowed':
         return 'Chức năng đăng ký hiện không khả dụng!!!';
+
+      // 3g / 4g. Nếu là các lỗi khác, hệ thống thông báo đăng ký thất bại.
       default:
         return 'Đăng ký thất bại, vui lòng thử lại!!!';
     }
@@ -105,6 +147,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // 0. Người dùng đang ở màn hình đăng ký.
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -134,6 +177,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
               ),
               const SizedBox(height: 30),
+              // 1. Người dùng nhập email, tên, mật khẩu, xác nhận mật khẩu.
               _buildInputField('Tên đầy đủ', nameController),
               const SizedBox(height: 16),
               _buildInputField('Email', emailController),
@@ -165,6 +209,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               if (isLoading) const CircularProgressIndicator(),
               const SizedBox(height: 10),
               GestureDetector(
+                // 2. Người dùng nhấn "Đăng ký".
                 onTap: _register,
                 child: Container(
                   height: 50,

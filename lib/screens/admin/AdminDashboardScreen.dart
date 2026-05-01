@@ -6,6 +6,7 @@ import '../UserProfileScreen.dart';
 import 'FoodManagementScreen.dart';
 import '../LoginScreen.dart';
 import 'MenuFeedbackScreen.dart';
+import 'MenuFeedbackTrendScreen.dart';
 import 'CategoryManagementScreen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
@@ -341,6 +342,21 @@ class _AdminDashboardScreenState
                       MaterialPageRoute(
                         builder: (_) =>
                         const MenuFeedbackScreen(),
+                      ),
+                    );
+                  },
+                ),
+
+                const SizedBox(height: 20),
+
+                menuCard(
+                  title: "Biểu đồ thống kê đánh giá",
+                  icon: Icons.show_chart,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const MenuFeedbackTrendScreen(),
                       ),
                     );
                   },

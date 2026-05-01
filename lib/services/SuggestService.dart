@@ -85,6 +85,37 @@ class SuggestService {
     };
   }
 
+  /// Lấy JWT token từ Flask/FastAPI server
+  Future<String?> _getAccessToken() async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      return null;
+    }
+
+    try {
+      // Lấy Firebase ID Token
+      final idToken = await user.getIdToken();
+      
+      // Gọi endpoint /token để lấy JWT
+      final tokenResponse = await http.post(
+        Uri.parse('http://10.0.2.2:8000/token'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'firebase_uid': user.uid,
+          'email': user.email,
+        }),
+      );
+
+      if (tokenResponse.statusCode == 200) {
+        final data = jsonDecode(tokenResponse.body);
+        return data['access_token'];
+      }
+    } catch (e) {
+      print('Error getting access token: $e');
+    }
+    return null;
+  }
+
   /// Gọi API gợi ý thực đơn dựa trên hồ sơ người dùng và dữ liệu ăn uống gần đây.
   Future<Map<String, dynamic>> fetchMenuAPI({
     required Map userData,
@@ -94,30 +125,47 @@ class SuggestService {
     required List<int> recentFoods,
     required List<int> excludedFoods,
   }) async {
-    final response = await http.post(
-      Uri.parse('http://10.0.2.2:8000/recommend'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'age': userData['age'],
-        'gender': userData['gender'],
-        'height': userData['height'],
-        'weight': userData['weight'],
-        'activity': userData['activity'],
-        'goal': userData['goal'],
-        'breakfast_cal': breakfast,
-        'lunch_cal': lunch,
-        'dinner_cal': dinner,
-        'recent_foods': recentFoods,
-        'excluded_foods': excludedFoods,
-      }),
-    );
+    try {
+      // Lấy JWT access token
+      final accessToken = await _getAccessToken();
+      if (accessToken == null) {
+        throw Exception('Failed to get access token');
+      }
 
-    if (response.statusCode != 200) {
+      // Gọi API recommendation với JWT token trong header
+      final response = await http.post(
+        Uri.parse('http://10.0.2.2:8000/recommend'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $accessToken',
+        },
+        body: jsonEncode({
+          'age': userData['age'],
+          'gender': userData['gender'],
+          'height': userData['height'],
+          'weight': userData['weight'],
+          'activity': userData['activity'],
+          'goal': userData['goal'],
+          'breakfast_cal': breakfast,
+          'lunch_cal': lunch,
+          'dinner_cal': dinner,
+          'recent_foods': recentFoods,
+          'excluded_foods': excludedFoods,
+        }),
+      );
+
+      if (response.statusCode != 200) {
+        print('API Error: ${response.statusCode} - ${response.body}');
+        return {};
+      }
+
+      return jsonDecode(response.body);
+    } catch (e) {
+      print('Error in fetchMenuAPI: $e');
       return {};
     }
-
-    return jsonDecode(response.body);
   }
+
 
   /// Lấy danh sách stt các món đã có trong thực đơn gợi ý hôm nay.
   Future<List<int>> getTodaySuggestedFoodStt() async {
@@ -154,27 +202,35 @@ class SuggestService {
     return result;
   }
 
-  /// Lưu thực đơn gợi ý trong ngày và trả về id của document vừa tạo.
+  /// 7. Lưu thực đơn gợi ý trong ngày và trả về id của document vừa tạo.
   Future<String?> saveMenu(Map<String, List<Map<String, dynamic>>> menu) async {
+    // 7.1 Lấy user hiện tại
     final user = _auth.currentUser;
     if (user == null) {
       return null;
     }
 
+    // 7.2 Chuyển đổi danh sách món ăn sang dạng id
     final Map<String, List<String>> foodIds = {};
-
     menu.forEach((meal, foods) {
       foodIds[meal] = foods.map((f) => f['id'].toString()).toList();
     });
 
-    final docRef = await _db.collection('suggested_menus').add({
-      'userId': user.uid,
-      'date': today,
-      'menu': foodIds,
-      'liked': null,
-      'createdAt': DateTime.now(),
-    });
 
+    // 7.3 Tạo instance SuggestedMenu để lưu trữ
+    final suggestedMenu = SuggestedMenu(
+      userId: user.uid,
+      date: today,
+      menu: foodIds,
+      liked: null,
+    );
+
+    // 7.4 Lưu dữ liệu instance SuggestedMenu vào Firestore, thêm createdAt
+    final dataToSave = suggestedMenu.toMap();
+    dataToSave['createdAt'] = DateTime.now();
+    final docRef = await _db.collection('suggested_menus').add(dataToSave);
+
+    // 7.5 Trả về id document vừa tạo
     return docRef.id;
   }
 }
