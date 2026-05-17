@@ -12,6 +12,7 @@ class SuggestService {
 
   String get today => DateTime.now().toString().substring(0, 10);
 
+  /// 2.1 Lấy danh sách STT các món đã ăn trong 3 ngày qua
   /// Tải lịch sử món ăn 3 ngày gần nhất để tránh gợi ý lặp.
   Future<List<int>> loadRecentFoodHistory() async {
     final user = _auth.currentUser;
@@ -48,6 +49,7 @@ class SuggestService {
     return result;
   }
 
+  /// 2.3 Lấy calories, lịch sử món đã ăn theo từng bữa
   /// Tính tổng calories đã ăn trong ngày theo từng bữa.
   Future<Map<String, double>> loadTodayCalories() async {
     final user = _auth.currentUser;
@@ -85,6 +87,7 @@ class SuggestService {
     };
   }
 
+  /// 4.2 Gửi yêu cầu đến API endpoint /recommend
   /// Gọi API gợi ý thực đơn dựa trên hồ sơ người dùng và dữ liệu ăn uống gần đây.
   Future<Map<String, dynamic>> fetchMenuAPI({
     required Map userData,
@@ -94,32 +97,47 @@ class SuggestService {
     required List<int> recentFoods,
     required List<int> excludedFoods,
   }) async {
-    final response = await http.post(
-      Uri.parse('http://10.0.2.2:8000/recommend'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'age': userData['age'],
-        'gender': userData['gender'],
-        'height': userData['height'],
-        'weight': userData['weight'],
-        'activity': userData['activity'],
-        'goal': userData['goal'],
-        'breakfast_cal': breakfast,
-        'lunch_cal': lunch,
-        'dinner_cal': dinner,
-        'recent_foods': recentFoods,
-        'excluded_foods': excludedFoods,
-      }),
-    );
+    try {
+      // Gửi yêu cầu POST đến endpoint API
+      final response = await http.post(
+        Uri.parse('http://10.0.2.2:8000/recommend'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          // Thông tin người dùng
+          'age': userData['age'],
+          'gender': userData['gender'],
+          'height': userData['height'],
+          'weight': userData['weight'],
+          'activity': userData['activity'],
+          'goal': userData['goal'],
+          // Calories đã tiêu thụ từng bữa
+          'breakfast_cal': breakfast,
+          'lunch_cal': lunch,
+          'dinner_cal': dinner,
+          // Danh sách loại trừ
+          'recent_foods': recentFoods,
+          'excluded_foods': excludedFoods,
+        }),
+      );
 
-    if (response.statusCode != 200) {
+      // Kiểm tra lỗi kết nối
+      if (response.statusCode != 200) {
+        print('API Error: ${response.statusCode} - ${response.body}');
+        return {};
+      }
+
+      // Trả về thực đơn từ API
+      return jsonDecode(response.body);
+    } catch (e) {
+      print('Error in fetchMenuAPI: $e');
       return {};
     }
-
-    return jsonDecode(response.body);
   }
 
-  /// Lấy danh sách stt các món đã có trong thực đơn gợi ý hôm nay.
+
+  /// Lấy danh sách STT các món đã được gợi ý hôm nay để tránh trùng lặp
   Future<List<int>> getTodaySuggestedFoodStt() async {
     final user = _auth.currentUser;
     if (user == null) {
@@ -154,27 +172,35 @@ class SuggestService {
     return result;
   }
 
-  /// Lưu thực đơn gợi ý trong ngày và trả về id của document vừa tạo.
+  /// 7. Lưu thực đơn gợi ý trong ngày và trả về id của document vừa tạo.
   Future<String?> saveMenu(Map<String, List<Map<String, dynamic>>> menu) async {
+    // 7.1 Lấy user hiện tại
     final user = _auth.currentUser;
     if (user == null) {
       return null;
     }
 
+    // 7.2 Chuyển đổi danh sách món ăn sang dạng id
     final Map<String, List<String>> foodIds = {};
-
     menu.forEach((meal, foods) {
       foodIds[meal] = foods.map((f) => f['id'].toString()).toList();
     });
 
-    final docRef = await _db.collection('suggested_menus').add({
-      'userId': user.uid,
-      'date': today,
-      'menu': foodIds,
-      'liked': null,
-      'createdAt': DateTime.now(),
-    });
 
+    // 7.3 Tạo instance SuggestedMenu để lưu trữ
+    final suggestedMenu = SuggestedMenu(
+      userId: user.uid,
+      date: today,
+      menu: foodIds,
+      liked: null,
+    );
+
+    // 7.4 Lưu dữ liệu instance SuggestedMenu vào Firestore, thêm createdAt
+    final dataToSave = suggestedMenu.toMap();
+    dataToSave['createdAt'] = DateTime.now();
+    final docRef = await _db.collection('suggested_menus').add(dataToSave);
+
+    // 7.5 Trả về id document vừa tạo
     return docRef.id;
   }
 }

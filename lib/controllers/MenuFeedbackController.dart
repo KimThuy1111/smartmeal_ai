@@ -15,4 +15,14 @@ class MenuFeedbackController {
       "notRatedCount": data["notRatedCount"] ?? 0,
     };
   }
+
+  Future<Map<String, dynamic>> loadTrendStats({
+    required String period,
+    int selectedIndex = 0,
+  }) async {
+    return await _service.loadTrendStats(
+      period: period,
+      selectedIndex: selectedIndex,
+    );
+  }
 }

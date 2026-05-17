@@ -14,18 +14,23 @@ class FoodService {
   final Map<String, List<Food>> _searchCache = {};
   List<Food>? _lastSearchResult;
 
-  // Lấy danh sách món ăn gợi ý ban đầu, ưu tiên dữ liệu kết quả tìm kiếm gần nhất.
+  /// 2a.3 Lấy danh sách món ăn nổi bật/gợi ý ban đầu
+  /// Ưu tiên sử dụng kết quả tìm kiếm trước đó, nếu không có thì lấy từ Firestore
   Future<List<Food>> getTopFoods(int limit) async {
     try {
+      // Kiểm tra xem có kết quả tìm kiếm lần trước không để sử dụng lại
       if (_lastSearchResult != null && _lastSearchResult!.isNotEmpty) {
         return _lastSearchResult!.take(limit).toList();
       }
 
+      // Truy vấn dữ liệu từ Firestore
       final snapshot = await _db.collection('food').limit(limit).get();
+      // Chuyển đổi dữ liệu từ Firestore sang model Food
       final List<Food> list = snapshot.docs
           .map((doc) => Food.fromMap(doc.data(), doc.id))
           .toList();
 
+      // Trộn ngẫu nhiên danh sách để hiển thị đa dạng
       list.shuffle();
       return list.take(limit).toList();
     } catch (e) {
@@ -34,18 +39,22 @@ class FoodService {
     }
   }
 
-  // Tìm món ăn theo tên và lưu cache để tăng tốc các lần tìm lại.
+  /// 3.3 Tìm kiếm món ăn theo từ khóa
+  /// Sử dụng cache để tăng tốc độ, tìm kiếm theo tiền tố tên món
   Future<List<Food>> searchFood(String keyword) async {
     try {
       final value = keyword.trim();
+      // Kiểm tra từ khóa có hợp lệ không
       if (value.isEmpty) {
         return [];
       }
 
+      // Kiểm tra bộ nhớ cache xem từ khóa này đã được tìm kiếm trước đó chưa
       if (_searchCache.containsKey(value)) {
         return _searchCache[value]!;
       }
 
+      // Truy vấn Firestore tìm kiếm theo tiền tố của từ khóa
       final snapshot = await _db
           .collection('food')
           .orderBy('name')
@@ -54,10 +63,12 @@ class FoodService {
           .limit(10)
           .get();
 
+      // Chuyển đổi kết quả từ Firestore thành danh sách đối tượng Food
       final result = snapshot.docs
           .map((doc) => Food.fromMap(doc.data(), doc.id))
           .toList();
 
+      // Lưu kết quả vào cache để tìm kiếm nhanh hơn lần sau
       _searchCache[value] = result;
       _lastSearchResult = result;
 
@@ -68,17 +79,22 @@ class FoodService {
     }
   }
 
-  // Lấy thông tin chi tiết một món ăn theo id.
+  /// 5.5 Lấy thông tin chi tiết một món ăn theo ID
+  /// Truy vấn Firestore lấy tài liệu theo ID
   Future<Food?> getFoodById(String foodId) async {
+    // Truy vấn Firestore lấy tài liệu theo ID
     final doc = await _db.collection('food').doc(foodId).get();
+    // Kiểm tra xem tài liệu có tồn tại không
     if (!doc.exists) {
       return null;
     }
 
+    // Chuyển đổi dữ liệu từ Firestore sang model Food
     return Food.fromMap(doc.data()!, doc.id);
   }
 
-  // Thêm món ăn vào nhật ký theo bữa của người dùng hiện tại.
+  /// 4.3 Thêm món ăn vào nhật ký theo bữa của người dùng
+  /// Lưu thông tin: userId, foodId, meal (breakfast/lunch/dinner), ngày, thời gian
   Future<void> addFoodToDiary({
     required String foodId,
     required String meal,
@@ -98,7 +114,7 @@ class FoodService {
     });
   }
 
-  // Tải ảnh món ăn lên Firebase Storage và trả về URL công khai.
+  /// Tải ảnh món ăn lên Cloudinary và trả về URL công khai
   Future<String?> uploadImage(File file) async {
     try {
       final uri = Uri.parse(
@@ -123,20 +139,23 @@ class FoodService {
     }
   }
 
-  // Thêm một món ăn mới vào Firestore.
+  /// Thêm một món ăn mới vào Firestore
   Future<void> addFood(Map<String, dynamic> data) async {
     await _db.collection('food').add(data);
   }
 
-  // Cập nhật thông tin món ăn theo id.
+  /// Cập nhật thông tin món ăn theo ID
   Future<void> updateFood(String id, Map<String, dynamic> data) async {
     await _db.collection('food').doc(id).update(data);
   }
 
+  // Truy vấn toàn bộ danh sách món ăn từ Firestore
   // Lấy toàn bộ danh sách món ăn từ Firestore.
   Future<List<Food>> getAllFoods() async {
+    // Truy vấn tất cả tài liệu trong collection food
     final snapshot = await _db.collection('food').get();
 
+    // Chuyển đổi tất cả dữ liệu sang danh sách đối tượng Food
     return snapshot.docs.map((e) => Food.fromMap(e.data(), e.id)).toList();
   }
 
@@ -145,18 +164,22 @@ class FoodService {
     await _db.collection('food').doc(id).delete();
   }
 
+  // Truy vấn chi tiết món ăn theo danh sách id cho từng bữa trong menu
   // Lấy thông tin chi tiết món ăn theo danh sách id cho từng bữa trong menu.
   Future<Map<String, List<Map<String, dynamic>>>> getFoodsByMenu(
     Map<String, List<String>> menu,
   ) async {
     final Map<String, List<Map<String, dynamic>>> result = {};
 
+    // Duyệt qua từng bữa ăn trong menu
     for (final String meal in menu.keys) {
       final List<Map<String, dynamic>> list = [];
 
+      // Truy vấn chi tiết cho từng ID món ăn trong bữa đó
       for (final String id in menu[meal]!) {
         final doc = await _db.collection('food').doc(id).get();
 
+        // Kiểm tra xem tài liệu tồn tại rồi thêm vào danh sách
         if (doc.exists) {
           final data = doc.data()!;
           data['id'] = doc.id;

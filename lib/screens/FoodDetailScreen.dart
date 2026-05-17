@@ -32,8 +32,10 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
     loadFood();
   }
 
-  /// Tải thông tin chi tiết của món ăn theo ID
+  /// 5.3 Yêu cầu xem thông tin món ăn
+  /// 5.4 Xử lí yêu cầu xem chi tiết món ăn
   Future<void> loadFood() async {
+    // 5.5 Truy vấn thông tin chi tiết món ăn
     final result = await _foodController.getFoodById(widget.foodId);
 
     String? catName;
@@ -242,6 +244,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
                     ),
                   ),
                 ),
+                // 6a. Hiển thị không có dữ liệu dinh dưỡng
                 if (buildNutritionList().isEmpty)
                   const Padding(
                     padding: EdgeInsets.all(16),
@@ -250,7 +253,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
                       style: TextStyle(color: Colors.grey),
                     ),
                   )
-                /// Hiển thị thông tin dinh dưỡng chi tiết của món ăn
+                // 6. Hiển thị thông tin dinh dưỡng chi tiết
                 else
                   ...buildNutritionList(),
                 const SizedBox(height: 30),

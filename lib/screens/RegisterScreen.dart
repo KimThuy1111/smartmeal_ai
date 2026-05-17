@@ -24,37 +24,68 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool showConfirmPassword = false;
   bool isLoading = false;
 
-  // Xử lý đăng ký tài khoản, kiểm tra dữ liệu và chuyển sang bước nhập hồ sơ.
   Future<void> _register() async {
     final String email = emailController.text.trim();
     final String password = passwordController.text.trim();
     final String confirm = confirmController.text.trim();
     final String name = nameController.text.trim();
 
+    // 3. Hệ thống kiểm tra tính hợp lệ của dữ liệu (email đúng định dạng, tên không được dài quá 255 ký tự, mật khẩu tối thiểu 8 ký tự, có chữ hoa, số, ký tự đặc biệt).
     if (email.isEmpty || password.isEmpty || name.isEmpty) {
-      Notifier.showError(context, 'Vui lòng nhập đầy đủ thông tin!!!');
+      // 3a. Nếu người dùng nhập thiếu thông tin
+      // 3a1. Hệ thống hiển thị “Nhập đầy đủ thông tin!”
+      Notifier.showError(context, 'Vui lòng nhập đầy đủ thông tin!');
+      // 3a2. Quay lại bước 1
       return;
     }
 
     if (!_isValidEmail(email)) {
-      Notifier.showError(context, 'Email không hợp lệ!!!');
+      // 3b. Nếu email sai định dạng
+      // 3b1. Hệ thống thông báo “Email không hợp lệ!”
+      Notifier.showError(context, 'Email không hợp lệ!');
+      // 3b2. Quay lại bước 1
       return;
     }
 
     if (password != confirm) {
-      Notifier.showError(context, 'Mật khẩu không khớp!!!');
+      // 3c. Nếu mật khẩu không trùng khớp
+      // 3c1. Hệ thống thông báo “Mật khẩu không trùng khớp!”
+      Notifier.showError(context, 'Mật khẩu không trùng khớp!');
+      // 3c2. Quay lại bước 1
+      return;
+    }
+
+    if (!_isStrongPassword(password)) {
+      // 3e. Nếu mật khẩu không đủ mạnh
+      // 3e1. Hệ thống thông báo “Mật khẩu tối thiểu 8 ký tự, có chữ hoa, số, ký tự đặc biệt!”
+      Notifier.showError(
+        context,
+        'Mật khẩu tối thiểu 8 ký tự, có chữ hoa, số, ký tự đặc biệt!',
+      );
+      // 3e2. Quay lại bước 1
+      return;
+    }
+    
+    if (name.length > 255) {
+      // 3g. Nếu tên dài quá 255 ký tự 
+      // 3g1. Hệ thống thông báo “Tên không được dài quá 255 ký tự!”
+      Notifier.showError(context, 'Tên không được dài quá 255 ký tự!');
+      // 3g2. Quay lại bước 1
       return;
     }
 
     try {
       setState(() => isLoading = true);
 
+      // 4. Hệ thống tạo tài khoản cho người dùng
       final result = await _authController.register(
         email: email,
         password: password,
       );
+
       final String uid = result['uid'];
 
+      // 6. Hệ thống chuyển sang trang nhập thông tin cá nhân
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -63,16 +94,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
             email: email,
             name: name,
             avatar: 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
+            showRegisterSuccessMessage: true,
           ),
         ),
       );
     } on FirebaseAuthException catch (e) {
       Notifier.showError(context, _mapFirebaseAuthError(e.code));
     } catch (_) {
+      // 3h. Nếu là các lỗi khác
+      // 3h1. Hệ thống thông báo “Đăng ký thất bại!”
       Notifier.showError(
         context,
-        'Hệ thống đang bận, vui lòng thử lại sau!!!',
+        'Đăng ký thất bại!',
       );
+      // 3h2. Quay lại bước 1
     } finally {
       setState(() => isLoading = false);
     }
@@ -83,22 +118,41 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return emailRegex.hasMatch(email);
   }
 
+  bool _isStrongPassword(String password) {
+    if (password.length < 8) {
+      return false;
+    }
+
+    final hasUpper = RegExp(r'[A-Z]').hasMatch(password);
+    final hasLower = RegExp(r'[a-z]').hasMatch(password);
+    final hasDigit = RegExp(r'\d').hasMatch(password);
+    final hasSpecial = RegExp(r'[^A-Za-z0-9]').hasMatch(password);
+
+    return hasUpper && hasLower && hasDigit && hasSpecial;
+  }
+
   String _mapFirebaseAuthError(String code) {
     switch (code) {
       case 'email-already-in-use':
-        return 'Email đã được sử dụng!!!';
+        // 3d. Nếu email đã được sử dụngdụng. Hệ thống thông báo “Tài khoản đã tồn tại!”
+        return 'Tài khoản đã tồn tại!';
+
       case 'invalid-email':
-        return 'Email không hợp lệ!!!';
+        // 3b. Nếu email sai định dạng. Hệ thống thông báo “Email không hợp lệ!”
+        return 'Email không hợp lệ!';
+
       case 'weak-password':
-        return 'Mật khẩu quá yếu (tối thiểu 6 ký tự)!!!';
+        // 3e. Nếu mật khẩu không đủ mạnh. Hệ thống thông báo “Mật khẩu tối thiểu 8 ký tự, có chữ hoa, số, ký tự đặc biệt!”
+        return 'Mật khẩu tối thiểu 8 ký tự, có chữ hoa, số, ký tự đặc biệt!';
+
       case 'network-request-failed':
-        return 'Lỗi kết nối mạng, vui lòng kiểm tra Internet!!!';
-      case 'too-many-requests':
-        return 'Bạn thao tác quá nhiều, vui lòng thử lại sau!!!';
-      case 'operation-not-allowed':
-        return 'Chức năng đăng ký hiện không khả dụng!!!';
+        // 3f. Nếu không có kết nối Internet. Hệ thống thông báo “Lỗi mạng, cần kiểm tra lại kết nối!”
+        return 'Lỗi mạng, cần kiểm tra lại kết nối!';
+
+      // 4f. Nếu hệ thống trả về operation-not-allowed, thông báo chức năng hiện không khả dụng.
       default:
-        return 'Đăng ký thất bại, vui lòng thử lại!!!';
+        // 3g. Nếu là các lỗi khác. Hệ thống thông báo “Đăng ký thất bại!”
+        return 'Đăng ký thất bại!';
     }
   }
 
@@ -134,6 +188,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
               ),
               const SizedBox(height: 30),
+              // 1. Người dùng nhập email, tên, mật khẩu, xác nhận mật khẩu.
               _buildInputField('Tên đầy đủ', nameController),
               const SizedBox(height: 16),
               _buildInputField('Email', emailController),
@@ -165,6 +220,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               if (isLoading) const CircularProgressIndicator(),
               const SizedBox(height: 10),
               GestureDetector(
+                // 2. Người dùng nhấn "Đăng ký".
                 onTap: _register,
                 child: Container(
                   height: 50,

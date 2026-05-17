@@ -74,23 +74,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
-  // Tạo một checkbox cho danh sách bệnh nền
-  Widget buildCheckbox(String disease) {
-    return CheckboxListTile(
-      value: selectedDiseases.contains(disease),
-      title: Text(disease),
-      onChanged: (value) {
-        setState(() {
-          if (value == true) {
-            selectedDiseases.add(disease);
-          } else {
-            selectedDiseases.remove(disease);
-          }
-        });
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
 
@@ -206,20 +189,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 buildDropdown(goal,
                     ["Giảm cân", "Duy trì cân nặng", "Tăng cân"],
                         (v) => setState(() => goal = v)),
-
-                const SizedBox(height: 20),
-
-                const Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text("Bệnh nền",
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                ),
-
-                buildCheckbox("Tăng huyết áp"),
-                buildCheckbox("Bệnh tim"),
-                buildCheckbox("Bệnh thận"),
-                buildCheckbox("Tiểu đường"),
-                buildCheckbox("Mụn trứng cá"),
 
                 const SizedBox(height: 30),
 

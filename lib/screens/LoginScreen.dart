@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../controllers/AuthController.dart';
 import '../models/Role.dart';
@@ -23,28 +24,41 @@ class _LoginScreenState extends State<LoginScreen> {
   bool isLoading = false;
   bool showPass = true;
 
-  // Xử lý đăng nhập bằng email/mật khẩu, sau đó điều hướng theo vai trò tài khoản.
   Future<void> _login() async {
+    // 3. Hệ thống kiểm tra dữ liệu.
     final String email = emailController.text.trim();
     final String password = passwordController.text.trim();
-
+    
     if (email.isEmpty || password.isEmpty) {
-      Notifier.showError(context, 'Vui lòng nhập đầy đủ thông tin!');
+      // 3a. Người dùng nhập thiếu thông tin, hiển thị thông báo vui lòng nhập đầy đủ thông tin.
+      Notifier.showError(context, 'Vui lòng nhập đầy đủ thông tin!!!');
+      return;
+    }
+
+    // 3b. Email không hợp lệ, hiển thị thông báo lỗi định dạng email.
+    if (!_isValidEmail(email)) {
+      Notifier.showError(context, 'Email không hợp lệ!!!');
       return;
     }
 
     try {
       setState(() => isLoading = true);
 
+      // 4. Nếu dữ liệu hợp lệ, hệ thống thực hiện xác thực thông tin đăng nhập.
       final result = await _authController.login(
         email: email,
         password: password,
       );
 
-      final doc = result['doc'];
+      // Ghi chú kỹ thuật: xác thực thành công và nhận dữ liệu người dùng.
       final uid = result['uid'];
+
+      // Ghi chú nghiệp vụ: kiểm tra vai trò và trạng thái hồ sơ để điều hướng đúng màn hình.
+      final doc = result['doc'];
+
       final String role = doc['role'];
 
+      // 5a. Tài khoản quản trị viên, điều hướng đến màn hình quản lý.
       if (role == Role.admin) {
         Navigator.pushReplacement(
           context,
@@ -52,12 +66,14 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       } else {
         if (doc.exists) {
+          // 5. Hệ thống điều hướng người dùng đến trang chủ.
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(builder: (_) => const HomeScreen()),
             (route) => false,
           );
         } else {
+          // 5b. Tài khoản người dùng chưa hoàn thiện hồ sơ, điều hướng đến màn hình nhập thông tin cá nhân.
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
@@ -72,50 +88,89 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       }
 
+      // 6. Hệ thống thông báo đăng nhập thành công.
       Notifier.showNotify(context, 'Đăng nhập thành công!!!');
-    } catch (e) {
-      String message = 'Đăng nhập thất bại';
-
-      if (e.toString().contains('invalid-credential')) {
-        message = 'Email không tồn tại hoặc sai mật khẩu!';
-      } else if (e.toString().contains('invalid-email')) {
-        message = 'Email không hợp lệ!';
-      }
-
-      Notifier.showError(context, message);
+    } on FirebaseAuthException catch (e) {
+      Notifier.showError(context, _mapFirebaseAuthError(e.code));
+    } catch (_) {
+      Notifier.showError(
+        context,
+        'Hệ thống đang bận, vui lòng thử lại sau!!!',
+      );
     } finally {
       setState(() => isLoading = false);
     }
   }
 
-  // Xử lý đăng nhập Google và điều hướng theo trạng thái hồ sơ người dùng.
+  bool _isValidEmail(String email) {
+    final RegExp emailRegex = RegExp(r'^[\w\.-]+@[\w\.-]+\.[a-zA-Z]{2,}$');
+    return emailRegex.hasMatch(email);
+  }
+
+  String _mapFirebaseAuthError(String code) {
+    switch (code) {
+      case 'invalid-credential':
+        // 4a. Nếu thông tin đăng nhập không đúng. Hệ thống hiển thị “Email không tồn tại hoặc sai mật khẩu!”
+        return 'Email không tồn tại hoặc sai mật khẩu!';
+
+      case 'user-disabled':
+        // 4b. Nếu tài khoản bị vô hiệu hóa. Hệ thống hiển thị “Tài khoản đã bị vô hiệu hóa!”
+        return 'Tài khoản đã bị vô hiệu hóa!';
+
+      case 'too-many-requests':
+        // 4c. Nếu người dùng thao tác quá nhiều lần. Hệ thống hiển thị “Bạn đã thử quá nhiều lần, vui lòng thử lại sau!”
+        return 'Bạn đã thử quá nhiều lần, vui lòng thử lại sau!';
+
+      case 'network-request-failed':
+        // 4d. Nếu không có kết nối Internet. Hệ thống hiển thị “Lỗi kết nối mạng, vui lòng kiểm tra Internet!”
+        return 'Lỗi kết nối mạng, vui lòng kiểm tra Internet!';
+
+      case 'operation-not-allowed':
+        // 4e. Nếu xảy ra các lỗi khác. Hệ thống hiển thị “Đăng nhập thất bại, vui lòng thử lại!”
+        return 'Đăng nhập thất bại, vui lòng thử lại!';
+
+      default:
+        // 4e. Nếu xảy ra các lỗi khác. Hệ thống hiển thị “Đăng nhập thất bại, vui lòng thử lại!”
+        return 'Đăng nhập thất bại, vui lòng thử lại!';
+    }
+  }
+
   Future<void> _signInWithGoogle() async {
     try {
       setState(() => isLoading = true);
 
+      // 2. Hệ thống gửi yêu cầu đăng nhập Google
       final result = await _authController.loginWithGoogle();
+
       if (result == null) {
+        // 4a. Nếu người dùng hủy thao tác hoặc đăng nhập Google thất bại, hệ thống hiển thị “Đăng nhập Google thất bại!”
+        Notifier.showError(context, 'Đăng nhập Google thất bại!');
         return;
       }
 
+      // 6. Hệ thống kiểm tra hồ sơ người dùng
       final doc = result['doc'];
       final user = result['user'];
       final uid = result['uid'];
+
       final String role = doc['role'];
 
       if (role == Role.admin) {
+        // 8a. Nếu là tài khoản quản trị viên, hệ thống điều hướng đến trang quản trị.
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const AdminDashboardScreen()),
         );
       } else {
         if (doc.exists) {
+          // 8. Hệ thống điều hướng người dùng đến trang chủ
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(builder: (_) => const HomeScreen()),
             (route) => false,
           );
         } else {
+          // 7b. Nếu là người dùng chưa hoàn thành hồ sơ, hệ thống điều hướng đến trang nhập thông tin cá nhân.
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
@@ -132,9 +187,12 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       }
 
+      // 7. Hệ thống thông báo đăng nhập thành công
       Notifier.showNotify(context, 'Đăng nhập thành công!');
-    } catch (e) {
-      Notifier.showError(context, 'Đăng nhập Google thất bại');
+    } catch (_) {
+      // 5a. Nếu xác thực thông tin thất bại, hệ thống hiển thị “Đăng nhập thất bại, vui lòng thử lại!”
+      // 6a. Nếu không lấy được hồ sơ người dùng, hệ thống hiển thị “Không thể lấy thông tin người dùng!”
+      Notifier.showError(context, 'Đăng nhập thất bại, vui lòng thử lại!');
     } finally {
       setState(() => isLoading = false);
     }
@@ -251,6 +309,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: 30),
+                // 1. Người dùng nhập email và mật khẩu
                 _buildInputField(
                   controller: emailController,
                   hint: 'Nhập email',
@@ -276,6 +335,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 24),
                 GestureDetector(
+                  // 2. Người dùng chọn "Đăng nhập"
                   onTap: _login,
                   child: _buildButton('ĐĂNG NHẬP'),
                 ),
@@ -304,6 +364,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 const Text('---------- HOẶC ----------'),
                 const SizedBox(height: 10),
                 GestureDetector(
+                  // 1. Người dùng chọn biểu tượng đăng nhập bằng Google
                   onTap: _signInWithGoogle,
                   child: _buildSocialIcon('assets/images/ic_google.png'),
                 ),

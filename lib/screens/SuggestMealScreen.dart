@@ -34,17 +34,26 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
   Map<int, Map<String, dynamic>> foodCache = {};
   late DateTime selectedDate;
   late String today;
+  
+  // FIX: Track actual calorie intake to properly detect "enough calories"
+  double totalCalories = 0;
+  double targetCalories = 0;
 
   @override
   void initState() {
     super.initState();
     selectedDate = DateTime.now();
     today = selectedDate.toString().substring(0, 10);
+    // 1. Mở màn hình gợi ý thực đơn
     _initData();
   }
 
+  // 2.1 Lấy calories, chỉ số dinh dưỡng, lịch sử ăn / 2.3 Lấy calories, lịch sử món đã ăn
   // Khởi tạo dữ liệu thực đơn từ cache, Firestore hoặc gọi API khi cần.
   Future<void> _initData() async {
+    // FIX: Load today's actual calorie intake first
+    await _loadTodayCalories();
+    
     if (_controller.isCacheValid(today)) {
       setState(() {
         menu = _controller.cachedMenu;
@@ -66,6 +75,49 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
     }
   }
 
+  // 2.3 Lấy calories, lịch sử món đã ăn
+  // FIX: Load today's actual calorie intake from food diary
+  Future<void> _loadTodayCalories() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      final db = FirebaseFirestore.instance;
+      
+      // 7.2 So sánh với lượng calo khuyến nghị
+      // Lấy mục tiêu calories của người dùng
+      final userDoc = await db.collection('users').doc(user.uid).get();
+      final userData = userDoc.data();
+      if (userData != null && userData['nutrition'] != null) {
+        final nutrition = userData['nutrition'];
+        targetCalories = (nutrition['Calories'] ?? 0).toDouble();
+      }
+
+      // 7.1 Tính tổng calo tiêu thụ
+      // Lấy lượng calories đã tiêu thụ vào nhật ký món ăn hôm nay
+      final snapshot = await db
+          .collection('food_diary')
+          .where('userId', isEqualTo: user.uid)
+          .where('date', isEqualTo: today)
+          .get();
+
+      totalCalories = 0;
+      for (var doc in snapshot.docs) {
+        final foodId = doc['foodId'];
+        final foodDoc = await db.collection('food').doc(foodId).get();
+        if (foodDoc.exists) {
+          final calories = (foodDoc.data()?['calories'] ?? 0).toDouble();
+          totalCalories += calories;
+        }
+      }
+
+      setState(() {});
+    } catch (e) {
+      print('Error loading today calories: $e');
+    }
+  }
+
+  // 2.2 Lấy dữ liệu từ Firebase Storage
   // Tải thực đơn gần nhất trong ngày của người dùng từ Firestore.
   Future<void> _loadMenuFromFirestore() async {
     final user = FirebaseAuth.instance.currentUser;
@@ -134,29 +186,35 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
     });
   }
 
-  // Gọi API gợi ý thực đơn mới, map dữ liệu đầy đủ và lưu lại.
+  // 3. Kiểm tra lượng calo đã ăn trong ngày / 4. Gọi API gợi ý thực đơn mới, map dữ liệu đầy đủ và lưu lại.
   Future<void> _fetchMenu() async {
     setState(() => isLoading = true);
 
+    // 4.1 Lấy calories đã tiêu thụ trong từng bữa
     final calories = await _controller.loadTodayCalories();
-    final recent = await _controller.loadRecentFoodHistory();
+    // Lấy danh sách STT các món đã ăn trong 3 ngày qua
+    final recentHistory = await _controller.loadRecentFoodHistory();
     final userData = await _userController.getUserData();
     final excludedFoods = await _controller.getExcludedFoods();
 
+    // 4.2 Gửi yêu cầu đến API
     final data = await _controller.fetchMenu(
       userData!,
       calories['breakfast'] ?? 0,
       calories['lunch'] ?? 0,
       calories['dinner'] ?? 0,
-      recent,
+      recentHistory, // Gửi lịch sử ăn uống thực tế
       excludedFoods,
     );
 
     if (data.isEmpty) {
+      // 3a. Hiển thị "Lỗi kết nối"
       setState(() => isLoading = false);
       return;
     }
 
+    // 5. Phân tích dữ liệu dinh dưỡng và lịch sử ăn uống để tạo thực đơn phù hợp
+    // 6. Nhận thực đơn từ API
     final aiMenu = data['menu'];
     final Map<String, List<Map<String, dynamic>>> fullMenu = {};
 
@@ -184,17 +242,25 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
       fullMenu[meal] = foods;
     }
 
+    // 7.1 Tạo instance để lưu trữ
+    // 7.2 Trả về instance / 7.3 Lưu dữ liệu
     final docId = await _controller.saveMenu(fullMenu);
     if (docId != null) {
       _controller.setCache(fullMenu, today);
+    } else {
+      // 7a. Hiển thị "Lưu thất bại"
+      Notifier.showError(context, 'Lưu thất bại');
     }
 
     if (!mounted) {
       return;
     }
 
+    // 8. Hiển thị danh sách thực đơn
     setState(() {
       menu = fullMenu;
+      currentMenuDocId = docId;
+      liked = null;
       isLoading = false;
     });
   }
@@ -220,25 +286,32 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
   // Gửi đánh giá thích/không thích cho thực đơn đang hiển thị.
   Future<void> _rateMenu(bool like) async {
     if (currentMenuDocId == null) {
+      Notifier.showNotify(context, 'Không tìm thấy thực đơn để đánh giá');
       return;
     }
 
-    await FirebaseFirestore.instance
-        .collection('suggested_menus')
-        .doc(currentMenuDocId)
-        .update({'liked': like});
+    try {
+      await FirebaseFirestore.instance
+          .collection('suggested_menus')
+          .doc(currentMenuDocId)
+          .update({'liked': like});
 
-    setState(() => liked = like);
-    Notifier.showNotify(context, 'Đã gửi đánh giá');
+      setState(() => liked = like);
+      Notifier.showNotify(context, 'Đã gửi đánh giá');
+    } catch (_) {
+      Notifier.showNotify(context, 'Gửi đánh giá thất bại');
+    }
   }
 
-  // Thêm một món ăn từ thực đơn gợi ý vào nhật ký theo bữa.
+  // 3a.2 Thêm món vào bữa được gợi ý
   Future<void> _addFood(String id, String meal) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       return;
     }
 
+    // 5.1 Lưu món ăn vào nhật ký
+    // 5.2 Ghi dữ liệu món ăn
     await FirebaseFirestore.instance.collection('food_diary').add({
       'userId': user.uid,
       'foodId': id,
@@ -247,6 +320,7 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
       'createdAt': FieldValue.serverTimestamp(),
     });
 
+    // 6. Thông báo "Thêm món ăn thành công"
     Notifier.showNotify(context, 'Đã thêm vào nhật ký');
   }
 
@@ -420,7 +494,7 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
             ),
             const SizedBox(width: 12),
             Text(
-              liked! ? 'Bạn đã thích thực đơn này' : 'Bạn không thích thực đơn này',
+              liked! ? 'Thực đơn này phù hợp với bạn' : 'Thực đơn này thực sự phù hợp với bạn',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -464,7 +538,7 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
                   Icon(Icons.favorite_border, color: Colors.white, size: 20),
                   SizedBox(width: 8),
                   Text(
-                    'Thích',
+                    'Phù hợp',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -499,7 +573,7 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
                   Icon(Icons.thumb_down_outlined, color: Colors.grey[700], size: 20),
                   const SizedBox(width: 8),
                   Text(
-                    'Không thích',
+                    'Không phù hợp',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,

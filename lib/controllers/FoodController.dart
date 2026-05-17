@@ -6,30 +6,30 @@ class FoodController {
 
   final FoodService _service = FoodService();
 
-  // Lấy món ăn theo ID
+  /// 5.5 Lấy thông tin chi tiết một món ăn theo ID
   Future<Food?> getFoodById(String id) async {
     return await _service.getFoodById(id);
   }
 
-  // Tìm kiếm món ăn
+  /// 3.3 Tìm kiếm món ăn theo từ khóa
   Future<List<Food>> searchFood(String keyword) async {
-
+    // Kiểm tra từ khóa có hợp lệ không
     if (keyword.trim().isEmpty) return [];
 
     return await _service.searchFood(keyword);
   }
 
-  // Lấy danh sách món ăn nổi bật
+  /// 2a.3 Lấy danh sách món ăn nổi bật
   Future<List<Food>> getTopFoods(int limit) async {
     return await _service.getTopFoods(limit);
   }
 
-  // Thêm món ăn vào nhật ký
+  /// 4.3 Thêm món ăn vào nhật ký theo bữa ăn
   Future<void> addFoodToDiary({
     required String foodId,
     required String meal,
   }) async {
-
+    // Kiểm tra dữ liệu hợp lệ
     if (meal.isEmpty) {
       throw Exception("Meal không hợp lệ");
     }
@@ -39,7 +39,8 @@ class FoodController {
       meal: meal,
     );
   }
-  // Kiểm tra xử lý đồng thời
+
+  /// Kiểm tra xử lý đồng thời (concurrent requests)
   Future<void> testConcurrent({
     required String keyword,
     required int totalRequests,
@@ -50,14 +51,14 @@ class FoodController {
     );
   }
 
-  // Tải ảnh lên
+  /// Tải ảnh lên Cloudinary
   Future<String?> uploadImage(File file) async {
     return await _service.uploadImage(file);
   }
 
-  // Thêm món ăn mới
+  /// Thêm một món ăn mới vào database
   Future<void> addFood(Map<String, dynamic> data) async {
-
+    // Kiểm tra dữ liệu bắt buộc
     if (!data.containsKey("name") || data["name"].isEmpty) {
       throw Exception("Tên món ăn không được để trống");
     }
@@ -65,22 +66,22 @@ class FoodController {
     await _service.addFood(data);
   }
 
-  // Cập nhật món ăn
+  /// Cập nhật thông tin món ăn
   Future<void> updateFood(String id, Map<String, dynamic> data) async {
     await _service.updateFood(id, data);
   }
 
-  // Xóa món ăn
+  /// Xóa một món ăn khỏi database
   Future<void> deleteFood(String id) async {
     await _service.deleteFood(id);
   }
 
-  // Lấy tất cả món ăn
+  /// Lấy tất cả các món ăn từ database
   Future<List<Food>> getAllFoods() async {
     return await _service.getAllFoods();
   }
 
-  // Lấy món ăn theo thực đơn
+  /// Lấy danh sách các món ăn dựa trên thực đơn gợi ý
   Future<Map<String, List<Map<String, dynamic>>>> getFoodsByMenu(
       Map<String, List<String>> menu) async {
 

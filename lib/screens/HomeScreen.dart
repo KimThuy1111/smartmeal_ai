@@ -68,6 +68,8 @@ class _HomeScreenState extends State<HomeScreen> {
       eatencarb = data['eatencarb'];
       eatenFat = data['eatenFat'];
     });
+
+    // 10. Dữ liệu dinh dưỡng sẽ được hiển thị trên trang chủ.
   }
 
   @override
@@ -224,8 +226,22 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // 8. Vòng tròn calo cập nhật theo lượng calo đã tiêu thụ
   // Hiển thị vòng tròn calories tổng và các thanh tiến trình dinh dưỡng.
   Widget _buildNutritionCircle() {
+    // Xác định màu sắc của vòng tròn dựa trên lượng calo tiêu thụ
+    Color circleColor = const Color(0xFF00C569); // Xanh - trong mục tiêu
+    String calorieStatus = 'Trong mục tiêu';
+    
+    // 8a. Vòng tròn calo chuyển sang màu đỏ
+    if (calories > 0 && goal.isNotEmpty) {
+      int goalValue = int.tryParse(goal.split(' ')[0]) ?? 0;
+      if (calories > goalValue) {
+        circleColor = const Color(0xFFFF6B6B); // Đỏ - vượt quá mục tiêu
+        calorieStatus = 'Vượt quá mục tiêu';
+      }
+    }
+    
     return Column(
       children: [
         Container(
@@ -233,18 +249,21 @@ class _HomeScreenState extends State<HomeScreen> {
           height: 200,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            gradient: const LinearGradient(
-              colors: [Color(0xFFF5FFFE), Color(0xFFFAFFFC)],
+            gradient: LinearGradient(
+              colors: [
+                circleColor.withValues(alpha: 0.1),
+                circleColor.withValues(alpha: 0.05),
+              ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             border: Border.all(
-              color: const Color(0xFFB8ECE0),
+              color: circleColor,
               width: 4,
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF00C569).withValues(alpha: 0.12),
+                color: circleColor.withValues(alpha: 0.12),
                 blurRadius: 16,
                 spreadRadius: 3,
                 offset: const Offset(0, 6),
@@ -256,10 +275,10 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               Text(
                 calories.toString(),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 48,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF00C569),
+                  color: circleColor,
                 ),
               ),
               const SizedBox(height: 2),
@@ -275,15 +294,15 @@ class _HomeScreenState extends State<HomeScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF00C569).withValues(alpha: 0.1),
+                  color: circleColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
                   'Mục tiêu: $goal',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF00C569),
+                    color: circleColor,
                   ),
                 ),
               ),
@@ -501,6 +520,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: InkWell(
                   borderRadius: BorderRadius.circular(999),
                   onTap: () {
+                    // 1. Người dùng mở giao diện tra cứu món ăn
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -511,26 +531,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Ink(
                     width: 34,
                     height: 34,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF11CF7A), Color(0xFF00B86B)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF00C569).withValues(alpha: 0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.add,
-                      color: Colors.white,
-                      size: 20,
-                    ),
                   ),
                 ),
               ),

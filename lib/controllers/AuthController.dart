@@ -7,6 +7,7 @@ class AuthController {
 
   // Đăng ký tài khoản
   Future<Map<String, dynamic>> register({required String email, required String password,}) async {
+    // 4.2. Hệ thống gọi phương thức đăng ký của AuthService
     final result = await _service.register(email: email, password: password);
     return result;
   }
@@ -25,6 +26,7 @@ class AuthController {
   Future<Map<String, dynamic>?> loginWithGoogle() async {
     final result = await _service.loginWithGoogle();
     if (result == null) return null;
+    // 6. Hệ thống kiểm tra hồ sơ người dùng
     DocumentSnapshot doc = result["doc"];
     if (!doc.exists) {
       User user = result["user"];

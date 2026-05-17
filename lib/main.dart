@@ -17,11 +17,9 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-
-  // Initialize default categories on app startup
+  await FirebaseAuth.instance.authStateChanges().first;
   await CategoryInitializer.initializeCategories();
 
-  // Migrate existing food records to use categoryId
   await FoodMigration.migrateToCategory();
 
   runApp(const MyApp());
@@ -88,7 +86,8 @@ class AuthWrapper extends StatelessWidget {
               return const LoginScreen();
             }
 
-            String role = roleSnapshot.data!["role"];
+            final data = roleSnapshot.data!.data() as Map<String, dynamic>?;
+            final String role = (data?["role"] as String?) ?? Role.user;
 
             // ADMIN
             if (role == Role.admin) {

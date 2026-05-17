@@ -4,6 +4,7 @@ import 'package:fl_chart/fl_chart.dart';
 import '../../models/User.dart';
 import 'MenuDetailScreen.dart';
 import '../../controllers/MenuFeedbackController.dart';
+import 'MenuFeedbackTrendScreen.dart';
 
 class MenuFeedbackScreen extends StatefulWidget {
   const MenuFeedbackScreen({super.key});
@@ -39,6 +40,10 @@ class _MenuFeedbackScreenState
   Future<void> loadMenus() async {
 
     final data = await _controller.loadMenus();
+
+    if (!mounted) {
+      return;
+    }
 
     setState(() {
       menus = data["menus"];
@@ -115,6 +120,38 @@ class _MenuFeedbackScreenState
               ),
 
               const SizedBox(height: 10),
+
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const MenuFeedbackTrendScreen(),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.show_chart),
+                        label: const Text('Xem biểu đồ tuần / tháng'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: const Color(0xFF00A651),
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(18),
+                            side: const BorderSide(color: Color(0xFF00A651)),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
 
               // Tỉ lệ phù hợp tổng quan
               Text(
@@ -254,37 +291,91 @@ class _MenuFeedbackScreenState
     double nonePercent =
     total == 0 ? 0 : notRatedCount / total * 100;
 
+    final bool hasData = total > 0;
+
     return SizedBox(
-      height: 180,
-      child: PieChart(
-        PieChartData(
-          sectionsSpace: 2,
-          sections: [
-
-            PieChartSectionData(
-              value: likeCount.toDouble(),
-              color: Colors.green,
-              radius: 90,
-              title:
-              "${likePercent.toStringAsFixed(0)}%",
+      height: 250,
+      child: Center(
+        child: SizedBox(
+          width: 240,
+          height: 240,
+          child: PieChart(
+            PieChartData(
+              sectionsSpace: 0,
+              centerSpaceRadius: 0,
+              sections: [
+                PieChartSectionData(
+                  value: likeCount.toDouble(),
+                  color: const Color(0xFF6FD98A),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFC8FACC), Color(0xFF4FB96E)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  radius: 82,
+                  title: hasData ? "${likePercent.toStringAsFixed(0)}%" : "",
+                  titleStyle: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black26,
+                        blurRadius: 3,
+                        offset: Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                ),
+                PieChartSectionData(
+                  value: dislikeCount.toDouble(),
+                  color: const Color(0xFFE04545),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFFB2B2), Color(0xFFC62828)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  radius: 82,
+                  title: hasData ? "${dislikePercent.toStringAsFixed(0)}%" : "",
+                  titleStyle: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black26,
+                        blurRadius: 3,
+                        offset: Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                ),
+                PieChartSectionData(
+                  value: notRatedCount.toDouble(),
+                  color: const Color(0xFFE8B83D),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFFF2B8), Color(0xFFE0A800)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  radius: 82,
+                  title: hasData ? "${nonePercent.toStringAsFixed(0)}%" : "",
+                  titleStyle: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black26,
+                        blurRadius: 3,
+                        offset: Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-
-            PieChartSectionData(
-              value: dislikeCount.toDouble(),
-              color: Colors.red,
-              radius: 90,
-              title:
-              "${dislikePercent.toStringAsFixed(0)}%",
-            ),
-
-            PieChartSectionData(
-              value: notRatedCount.toDouble(),
-              color: Colors.orange,
-              radius: 90,
-              title:
-              "${nonePercent.toStringAsFixed(0)}%",
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -294,14 +385,12 @@ class _MenuFeedbackScreenState
   Widget buildLegend() {
 
     return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
       children: [
-
-        legendPill(Colors.green, "Thích", "like"),
-        const SizedBox(width: 10),
-        legendPill(Colors.red, "Không Thích", "dislike"),
-        const SizedBox(width: 10),
-        legendPill(Colors.orange, "Chưa đánh giá", "none"),
+        Expanded(child: legendPill(const Color(0xFF79D996), "Thích", "like")),
+        const SizedBox(width: 8),
+        Expanded(child: legendPill(const Color(0xFFE04545), "Không Thích", "dislike")),
+        const SizedBox(width: 8),
+        Expanded(child: legendPill(const Color(0xFFE8B83D), "Chưa đánh giá", "none")),
       ],
     );
   }
@@ -321,7 +410,7 @@ class _MenuFeedbackScreenState
       },
 
       child: Container(
-        padding: const EdgeInsets.fromLTRB(8, 7, 15, 7),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
         decoration: BoxDecoration(
           color: active ? Colors.grey[200] : Colors.white,
           borderRadius: BorderRadius.circular(40),
@@ -329,6 +418,7 @@ class _MenuFeedbackScreenState
         ),
 
         child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
 
             Container(
@@ -342,7 +432,13 @@ class _MenuFeedbackScreenState
 
             const SizedBox(width: 8),
 
-            Text(text),
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(text),
+              ),
+            ),
           ],
         ),
       ),
