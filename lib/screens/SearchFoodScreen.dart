@@ -32,6 +32,7 @@ class _SearchFoodScreenState extends State<SearchFoodScreen> {
   @override
   void initState() {
     super.initState();
+    // 1. Mở giao diện trang tra cứu món ăn
     _loadTopFoods();
   }
 
@@ -42,10 +43,12 @@ class _SearchFoodScreenState extends State<SearchFoodScreen> {
     super.dispose();
   }
 
-  // Tải danh sách món ăn phổ biến để hiển thị mặc định.
+  // 2a.1 Yêu cầu lấy danh sách món ăn nổi bật
+  // 2a.2 Xử lý yêu cầu
   Future<void> _loadTopFoods() async {
     setState(() => isLoading = true);
 
+    // 2a.3 Truy vấn dữ liệu món ăn
     final result = await _controller.getTopFoods(10);
 
     setState(() {
@@ -55,12 +58,13 @@ class _SearchFoodScreenState extends State<SearchFoodScreen> {
     });
   }
 
-  // Tìm món ăn theo từ khóa với debounce để giảm số lần gọi API.
+  // 3.1 Yêu cầu tìm kiếm món ăn
   void _searchFood(String keyword) {
     if (_debounce?.isActive ?? false) {
       _debounce!.cancel();
     }
 
+    // 3.2 Xử lí yêu cầu tìm kiếm
     _debounce = Timer(const Duration(milliseconds: 400), () async {
       final value = keyword.trim();
 
@@ -71,6 +75,7 @@ class _SearchFoodScreenState extends State<SearchFoodScreen> {
 
       setState(() => isLoading = true);
 
+      // 3.3 Truy vấn dữ liệu món ăn
       final result = await _controller.searchFood(value);
 
       setState(() {
@@ -97,15 +102,18 @@ class _SearchFoodScreenState extends State<SearchFoodScreen> {
     return foods.sublist(start, end);
   }
 
-  // Thêm món ăn vào nhật ký theo buổi ăn đã chọn và điều hướng sang gợi ý món.
+  // 4.3 Thêm món vào bữa đã chọn / 3a.2 Thêm món vào bữa được gợi ý
   Future<void> _addFoodToDiary(Food food, String meal) async {
     try {
+      // 5.1 Lưu món ăn vào nhật ký
       await _controller.addFoodToDiary(
         foodId: food.id,
         meal: meal,
       );
 
+      // 6. Thông báo "Thêm món ăn thành công"
       Notifier.showNotify(context, 'Thêm thành công');
+      // Chuyển sang màn hình gợi ý thực đơn
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -113,11 +121,12 @@ class _SearchFoodScreenState extends State<SearchFoodScreen> {
         ),
       );
     } catch (e) {
+      // 5a. Hiển thị lỗi hệ thống
       Notifier.showError(context, 'Lỗi khi thêm món ăn');
     }
   }
 
-  // Hiển thị hộp thoại cho người dùng chọn buổi ăn.
+  // 4.1 Hiển thị cửa sổ chọn bữa ăn
   void _showMealPickerDialog(Food food) {
     showDialog(
       context: context,
@@ -135,12 +144,13 @@ class _SearchFoodScreenState extends State<SearchFoodScreen> {
     );
   }
 
-  // Tạo một lựa chọn buổi ăn trong hộp thoại và gọi hàm lưu nhật ký.
+  // 4.2 Chọn bữa ăn và 4.3 Thêm món vào bữa đã chọn
   Widget _mealButton(String title, String value, Food food) {
     return ListTile(
       title: Text(title),
       onTap: () {
         Navigator.pop(context);
+        // Gọi hàm thêm vào nhật ký
         _addFoodToDiary(food, value);
       },
     );
@@ -175,6 +185,7 @@ class _SearchFoodScreenState extends State<SearchFoodScreen> {
           ),
           Padding(
             padding: const EdgeInsets.all(16),
+            // 2. Nhập từ khóa tìm kiếm
             child: TextField(
               controller: searchController,
               onChanged: _searchFood,
@@ -193,8 +204,10 @@ class _SearchFoodScreenState extends State<SearchFoodScreen> {
           Expanded(
             child: isLoading
                 ? const Center(child: CircularProgressIndicator())
+                // 3a. Hiển thị không tìm thấy món phù hợp
                 : foods.isEmpty
                 ? const Center(child: Text('Không có dữ liệu'))
+                // 4. Hiển thị danh sách món ăn
                 : ListView.builder(
                     itemCount: _paginatedFoods.length,
                     itemBuilder: (_, i) => _buildFoodItem(_paginatedFoods[i]),
@@ -212,7 +225,9 @@ class _SearchFoodScreenState extends State<SearchFoodScreen> {
       name: food.name,
       image: food.image,
       calories: food.calories,
+      // 5.1 Chọn món cần xem
       onTap: () {
+        // 5.2 Chuyển sang màn hình chi tiết
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -222,6 +237,7 @@ class _SearchFoodScreenState extends State<SearchFoodScreen> {
       },
       trailing: IconButton(
         icon: const Icon(Icons.add_circle, color: Colors.green),
+        // 3. Chọn icon (+) của món cần thêm vào nhật ký / 3a Chọn icon (+) của món cần thêm vào nhật ký
         onPressed: () => _showMealPickerDialog(food),
       ),
     );

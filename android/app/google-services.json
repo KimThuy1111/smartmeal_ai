@@ -12,7 +12,20 @@
           "package_name": "com.example.smartmeal_ai"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "1032047333639-ls48ac06jtgu33fmgjret5khro6qe0go.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.smartmeal_ai",
+            "certificate_hash": "3a3ce82c929a2cd5093bfa3533ac2865473acc53"
+          }
+        },
+        {
+          "client_id": "1032047333639-88mqqq5qk9qh76abvpa9ncaeai6fdsj9.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBd6qbQ9G5gyjFThN_I7HAGWA4HW-xbZq8"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1032047333639-88mqqq5qk9qh76abvpa9ncaeai6fdsj9.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1032047333639-001adcks94g1s0o7go0rq4kpt52gupv3.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.smartmealAi"
+              }
+            }
+          ]
         }
       }
     },
@@ -31,7 +56,12 @@
           "package_name": "com.example.smartmealaii"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "1032047333639-88mqqq5qk9qh76abvpa9ncaeai6fdsj9.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBd6qbQ9G5gyjFThN_I7HAGWA4HW-xbZq8"
@@ -39,7 +69,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1032047333639-88mqqq5qk9qh76abvpa9ncaeai6fdsj9.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1032047333639-001adcks94g1s0o7go0rq4kpt52gupv3.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.smartmealAi"
+              }
+            }
+          ]
         }
       }
     }

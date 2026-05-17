@@ -46,8 +46,8 @@ class _RegisterStep2ScreenState extends State<RegisterStep2Screen> {
         if (!mounted) {
           return;
         }
-        // 5. Hệ thống hiển thị thông báo đăng ký thành công.
-        Notifier.showNotify(context, 'Đăng ký thành công!!! Vui lòng nhập thông tin cá nhân.');
+        // 5. Hệ thống hiển thị thông báo đăng ký thành công
+        Notifier.showNotify(context, 'Đăng ký thành công!');
       });
     }
   }
@@ -56,24 +56,31 @@ class _RegisterStep2ScreenState extends State<RegisterStep2Screen> {
     try {
       // 3. Hệ thống kiểm tra dữ liệu
       if (ageController.text.isEmpty || weightController.text.isEmpty || heightController.text.isEmpty) {
-        // 3a. Nếu thiếu thông tin, hệ thống thông báo vui lòng nhập đầy đủ thông tin.
-        Notifier.showError(context, 'Vui lòng nhập đầy đủ thông tin!!!');
+        // 3a. Nếu người dùng nhập thiếu thông tin. Hệ thống hiển thị “Vui lòng nhập đầy đủ thông tin!”
+        Notifier.showError(context, 'Vui lòng nhập đầy đủ thông tin!');
         return;
       }
 
-      // 3b. Tuổi không hợp lệ, hệ thống thông báo tuổi phải là số nguyên dương.
-      if (!_isValidNumber(ageController.text)) {
-        Notifier.showError(context, 'Tuổi phải là số nguyên dương!!!');
+      if (!_isValidNumber(ageController.text) || int.parse(ageController.text) <= 0) {
+        // 3b. Nếu tuổi không hợp lệ. Hệ thống hiển thị “Tuổi phải là số nguyên dương!”
+        Notifier.showError(context, 'Tuổi phải là số nguyên dương!');
         return;
       }
 
-      // 3c. Chiều cao và cân nặng không hợp lệ, hệ thống thông báo lỗi.
-      if (!_isValidDecimal(weightController.text) || !_isValidDecimal(heightController.text)) {
-        Notifier.showError(context, 'Cân nặng và chiều cao phải là số hợp lệ!!!');
+      if (!_isValidDecimal(weightController.text) || !_isValidDecimal(heightController.text) || double.parse(weightController.text) <= 0 || double.parse(heightController.text) <= 0) {
+        // 3c. Nếu chiều cao hoặc cân nặng không hợp lệ. Hệ thống hiển thị “Chiều cao và cân nặng không hợp lệ!”
+        Notifier.showError(context, 'Chiều cao và cân nặng không hợp lệ!');
         return;
       }
 
-      // 4. Nếu thông tin hợp lệ, hệ thống tạo hồ sơ người dùng hoàn chỉnh.
+      if (!['Ít vận động', 'Vận động nhẹ', 'Vận động vừa phải', 'Vận động nhiều', 'Vận động cực nhiều'].contains(activity) || 
+          !['Giảm cân', 'Duy trì cân nặng', 'Tăng cân'].contains(goal)) {
+        // 3d. Nếu mức độ vận động hoặc mục tiêu cân nặng không hợp lệ. Hệ thống hiển thị “Mức độ vận động hoặc mục tiêu cân nặng không hợp lệ!”
+        Notifier.showError(context, 'Mức độ vận động hoặc mục tiêu cân nặng không hợp lệ!');
+        return;
+      }
+
+      // 4. Hệ thống tạo hồ sơ người dùng hoàn chỉnh
       final user = User(
         uid: widget.uid,
         email: widget.email,
@@ -97,8 +104,8 @@ class _RegisterStep2ScreenState extends State<RegisterStep2Screen> {
         data: user.toMap(),
       );
 
-      // 6. Hệ thống hiển thị thông báo sau khi lưu hồ sơ thành công.
-        Notifier.showNotify(context, 'Lưu thông tin thành công!!!');
+      // 6. Hệ thống thông báo lưu thông tin thành công
+      Notifier.showNotify(context, 'Lưu thông tin thành công!');
 
       // 7. Hệ thống điều hướng người dùng đến màn hình trang chủ.
       Navigator.pushAndRemoveUntil(
@@ -106,11 +113,19 @@ class _RegisterStep2ScreenState extends State<RegisterStep2Screen> {
         MaterialPageRoute(builder: (_) => const HomeScreen()),
         (route) => false,
       );
-    } on Exception catch (_) {
-      // 5a. Nếu dữ liệu lưu vào Firestore thất bại (mất mạng, timeout, lỗi hệ thống). Hệ thống hiển thị “Lưu thông tin thất bại, vui lòng thử lại!!!”
+    } on Exception catch (e) {
+      if (e.toString().contains('network') || e.toString().contains('unavailable')) {
+        // 5b. Nếu không có kết nối Internet. Hệ thống hiển thị “Lỗi mạng, cần kiểm tra lại kết nối!”
+        Notifier.showError(context, 'Lỗi mạng, cần kiểm tra lại kết nối!');
+      } else {
+        // 5a. Nếu lưu hồ sơ thất bại. Hệ thống hiển thị “Lưu thông tin thất bại, vui lòng thử lại!”
+        Notifier.showError(context, 'Lưu thông tin thất bại, vui lòng thử lại!');
+      }
+    } catch (_) {
+      // 5c. Nếu xảy ra lỗi khác. Hệ thống hiển thị “Cập nhật thông tin thất bại!”
       Notifier.showError(
         context,
-        'Lưu thông tin thất bại, vui lòng thử lại!!!',
+        'Cập nhật thông tin thất bại!',
       );
     }
   }
@@ -246,7 +261,7 @@ class _RegisterStep2ScreenState extends State<RegisterStep2Screen> {
     );
   }
 
-  /// Tạo ô nhập số cho thông tin tuổi, cân nặng và chiều cao.
+  // Tạo ô nhập số cho thông tin tuổi, cân nặng và chiều cao.
   Widget _buildInput(String hint, TextEditingController controller) {
     return TextField(
       controller: controller,
@@ -255,7 +270,7 @@ class _RegisterStep2ScreenState extends State<RegisterStep2Screen> {
     );
   }
 
-  /// Tạo dropdown dùng chung cho mức vận động và mục tiêu dinh dưỡng.
+  // Tạo dropdown dùng chung cho mức vận động và mục tiêu dinh dưỡng.
   Widget _buildDropdown(
     String value,
     List<String> items,

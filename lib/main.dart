@@ -17,11 +17,9 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-
-  // Initialize default categories on app startup
+  await FirebaseAuth.instance.authStateChanges().first;
   await CategoryInitializer.initializeCategories();
 
-  // Migrate existing food records to use categoryId
   await FoodMigration.migrateToCategory();
 
   runApp(const MyApp());

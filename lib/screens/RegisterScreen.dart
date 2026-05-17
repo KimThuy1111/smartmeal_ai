@@ -25,43 +25,59 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool isLoading = false;
 
   Future<void> _register() async {
-    // 3. Hệ thống kiểm tra dữ liệu.
     final String email = emailController.text.trim();
     final String password = passwordController.text.trim();
     final String confirm = confirmController.text.trim();
     final String name = nameController.text.trim();
 
+    // 3. Hệ thống kiểm tra tính hợp lệ của dữ liệu (email đúng định dạng, tên không được dài quá 255 ký tự, mật khẩu tối thiểu 8 ký tự, có chữ hoa, số, ký tự đặc biệt).
     if (email.isEmpty || password.isEmpty || name.isEmpty) {
-      // 3a. Nếu người dùng nhập thiếu thông tin, hệ thống yêu cầu nhập đầy đủ.
-      Notifier.showError(context, 'Vui lòng nhập đầy đủ thông tin!!!');
+      // 3a. Nếu người dùng nhập thiếu thông tin
+      // 3a1. Hệ thống hiển thị “Nhập đầy đủ thông tin!”
+      Notifier.showError(context, 'Vui lòng nhập đầy đủ thông tin!');
+      // 3a2. Quay lại bước 1
       return;
     }
 
-    // 3b. Nếu email sai định dạng, hệ thống thông báo email không hợp lệ.
     if (!_isValidEmail(email)) {
-      Notifier.showError(context, 'Email không hợp lệ!!!');
+      // 3b. Nếu email sai định dạng
+      // 3b1. Hệ thống thông báo “Email không hợp lệ!”
+      Notifier.showError(context, 'Email không hợp lệ!');
+      // 3b2. Quay lại bước 1
       return;
     }
 
-    // 3c. Nếu mật khẩu không trùng khớp, hệ thống thông báo lỗi.
     if (password != confirm) {
-      Notifier.showError(context, 'Mật khẩu không khớp!!!');
+      // 3c. Nếu mật khẩu không trùng khớp
+      // 3c1. Hệ thống thông báo “Mật khẩu không trùng khớp!”
+      Notifier.showError(context, 'Mật khẩu không trùng khớp!');
+      // 3c2. Quay lại bước 1
       return;
     }
 
-    // 3e. Mật khẩu không đủ mạnh, hệ thống yêu cầu người dùng đặt mật khẩu mạnh hơn.
     if (!_isStrongPassword(password)) {
+      // 3e. Nếu mật khẩu không đủ mạnh
+      // 3e1. Hệ thống thông báo “Mật khẩu tối thiểu 8 ký tự, có chữ hoa, số, ký tự đặc biệt!”
       Notifier.showError(
         context,
-        'Mật khẩu phải có ít nhất 8 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt!!!',
+        'Mật khẩu tối thiểu 8 ký tự, có chữ hoa, số, ký tự đặc biệt!',
       );
+      // 3e2. Quay lại bước 1
+      return;
+    }
+    
+    if (name.length > 255) {
+      // 3g. Nếu tên dài quá 255 ký tự 
+      // 3g1. Hệ thống thông báo “Tên không được dài quá 255 ký tự!”
+      Notifier.showError(context, 'Tên không được dài quá 255 ký tự!');
+      // 3g2. Quay lại bước 1
       return;
     }
 
     try {
       setState(() => isLoading = true);
 
-      // 4. Nếu hợp lệ, hệ thống tạo tài khoản cho người dùng.
+      // 4. Hệ thống tạo tài khoản cho người dùng
       final result = await _authController.register(
         email: email,
         password: password,
@@ -69,7 +85,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       final String uid = result['uid'];
 
-      // 6. Hệ thống chuyển sang trang nhập thông tin cá nhân.
+      // 6. Hệ thống chuyển sang trang nhập thông tin cá nhân
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -85,10 +101,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
     } on FirebaseAuthException catch (e) {
       Notifier.showError(context, _mapFirebaseAuthError(e.code));
     } catch (_) {
+      // 3h. Nếu là các lỗi khác
+      // 3h1. Hệ thống thông báo “Đăng ký thất bại!”
       Notifier.showError(
         context,
-        'Hệ thống đang bận, vui lòng thử lại sau!!!',
+        'Đăng ký thất bại!',
       );
+      // 3h2. Quay lại bước 1
     } finally {
       setState(() => isLoading = false);
     }
@@ -114,40 +133,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   String _mapFirebaseAuthError(String code) {
     switch (code) {
-      // 3d. Nếu email đã được sử dụng, hệ thống thông báo tài khoản đã tồn tại.
       case 'email-already-in-use':
-        return 'Email đã được sử dụng!!!';
+        // 3d. Nếu email đã được sử dụngdụng. Hệ thống thông báo “Tài khoản đã tồn tại!”
+        return 'Tài khoản đã tồn tại!';
 
-      // 3b. Nếu email sai định dạng, hệ thống thông báo email không hợp lệ.
       case 'invalid-email':
-        return 'Email không hợp lệ!!!';
+        // 3b. Nếu email sai định dạng. Hệ thống thông báo “Email không hợp lệ!”
+        return 'Email không hợp lệ!';
 
-      // 3e. Mật khẩu không đủ mạnh, hệ thống yêu cầu người dùng đặt mật khẩu mạnh hơn.
       case 'weak-password':
-        return 'Mật khẩu chưa đủ mạnh (ít nhất 8 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt)!!!';
+        // 3e. Nếu mật khẩu không đủ mạnh. Hệ thống thông báo “Mật khẩu tối thiểu 8 ký tự, có chữ hoa, số, ký tự đặc biệt!”
+        return 'Mật khẩu tối thiểu 8 ký tự, có chữ hoa, số, ký tự đặc biệt!';
 
-      // 3f / 4d. Không có kết nối Internet, hệ thống thông báo lỗi mạng và yêu cầu kiểm tra lại kết nối.
       case 'network-request-failed':
-        return 'Lỗi kết nối mạng, vui lòng kiểm tra Internet!!!';
-
-      // 4e. Nếu hệ thống trả về too-many-requests, thông báo người dùng thử lại sau.
-      case 'too-many-requests':
-        return 'Bạn thao tác quá nhiều, vui lòng thử lại sau!!!';
+        // 3f. Nếu không có kết nối Internet. Hệ thống thông báo “Lỗi mạng, cần kiểm tra lại kết nối!”
+        return 'Lỗi mạng, cần kiểm tra lại kết nối!';
 
       // 4f. Nếu hệ thống trả về operation-not-allowed, thông báo chức năng hiện không khả dụng.
-      case 'operation-not-allowed':
-        return 'Chức năng đăng ký hiện không khả dụng!!!';
-
-      // 3g / 4g. Nếu là các lỗi khác, hệ thống thông báo đăng ký thất bại.
       default:
-        return 'Đăng ký thất bại, vui lòng thử lại!!!';
+        // 3g. Nếu là các lỗi khác. Hệ thống thông báo “Đăng ký thất bại!”
+        return 'Đăng ký thất bại!';
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // 0. Người dùng đang ở màn hình đăng ký.
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(

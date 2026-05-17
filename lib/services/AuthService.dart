@@ -13,12 +13,14 @@ class AuthService {
     required String email,
     required String password,
   }) async {
+    // 4.3. Hệ thống gửi yêu cầu tạo tài khoản trên Firebase Auth
     final UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
       email: email,
       password: password,
     );
 
     final String uid = userCredential.user!.uid;
+    // 4.4. Hệ thống tạo dữ liệu người dùng ban đầu trên Firestore
     await _db.collection('users').doc(uid).set({
       'email': email,
       'role': Role.user,
@@ -36,6 +38,7 @@ class AuthService {
     required String email,
     required String password,
   }) async {
+    // 4. Hệ thống thực hiện xác thực thông tin đăng nhập
     final UserCredential userCredential = await _auth.signInWithEmailAndPassword(
       email: email,
       password: password,
@@ -53,21 +56,26 @@ class AuthService {
 
   // Đăng nhập bằng Google và trả về dữ liệu người dùng tương ứng trong Firestore.
   Future<Map<String, dynamic>?> loginWithGoogle() async {
+    // 2. Hệ thống gửi yêu cầu đăng nhập Google
+    // 3. Người dùng chọn tài khoản Google và cấp quyền truy cập
     final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
     if (googleUser == null) {
       return null;
     }
 
+    // 4. Hệ thống nhận thông tin xác thực từ Google
     final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
     final credential = GoogleAuthProvider.credential(
       accessToken: googleAuth.accessToken,
       idToken: googleAuth.idToken,
     );
 
+    // 5. Hệ thống xác thực thông tin đăng nhập
     final UserCredential userCredential = await _auth.signInWithCredential(credential);
     final User user = userCredential.user!;
     final String uid = user.uid;
     final userRef = _db.collection('users').doc(uid);
+    // 6. Hệ thống kiểm tra hồ sơ người dùng
     final DocumentSnapshot doc = await userRef.get();
 
     if (!doc.exists) {

@@ -330,38 +330,6 @@ class _AdminDashboardScreenState
                   );
                 },
               ),
-
-              const SizedBox(height: 20),
-
-                menuCard(
-                  title: "Đánh giá thực đơn AI",
-                  icon: Icons.analytics,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) =>
-                        const MenuFeedbackScreen(),
-                      ),
-                    );
-                  },
-                ),
-
-                const SizedBox(height: 20),
-
-                menuCard(
-                  title: "Biểu đồ thống kê đánh giá",
-                  icon: Icons.show_chart,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const MenuFeedbackTrendScreen(),
-                      ),
-                    );
-                  },
-                ),
-
                 const SizedBox(height: 30),
               ],
             ),
