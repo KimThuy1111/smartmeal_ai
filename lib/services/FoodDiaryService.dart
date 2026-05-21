@@ -105,109 +105,331 @@ class FoodDiaryService {
     return targetCalories;
   }
 
+  /// Thống kê calories theo khoảng ngày
   Future<Map<String, dynamic>> loadPeriodStats({
-    required DateTime referenceDate,
+    required DateTime startDate,
+    required DateTime endDate,
     required String period,
   }) async {
+
     final user = _auth.currentUser;
+
     if (user == null) {
       throw Exception('User chưa đăng nhập');
     }
 
     final uid = user.uid;
+
+    // Calories mục tiêu mỗi ngày
     final targetCalories = await _getTargetCalories(uid);
 
-    final allDocs = await _db
+    // Chuẩn hóa ngày
+    final start = _dateOnly(startDate);
+    final end = _dateOnly(endDate);
+
+    /// Query đúng khoảng ngày thay vì lấy toàn bộ
+    final snapshot = await _db
         .collection('food_diary')
         .where('userId', isEqualTo: uid)
+        .where('date', isGreaterThanOrEqualTo: _formatDate(start))
+        .where('date', isLessThanOrEqualTo: _formatDate(end))
         .get();
 
-    final normalizedReference = _dateOnly(referenceDate);
-    late final DateTime startDate;
-    late final DateTime endDate;
-
-    if (period == 'week') {
-      startDate = normalizedReference.subtract(
-        Duration(days: normalizedReference.weekday - 1),
-      );
-      endDate = startDate.add(const Duration(days: 6));
-    } else {
-      startDate = DateTime(normalizedReference.year, normalizedReference.month, 1);
-      endDate = DateTime(
-        normalizedReference.year,
-        normalizedReference.month + 1,
-        0,
-      );
-    }
-
+    /// calories theo từng ngày
     final Map<String, double> caloriesByDate = {};
-    for (var doc in allDocs.docs) {
-      final dateString = doc['date']?.toString();
-      if (dateString == null || dateString.length < 10) continue;
 
-      final parsed = DateTime.tryParse(dateString);
-      if (parsed == null) continue;
+    /// cache calories món ăn tránh query nhiều lần
+    final Map<String, double> foodCaloriesCache = {};
 
-      final day = _dateOnly(parsed);
-      if (day.isBefore(startDate) || day.isAfter(endDate)) continue;
+    for (final doc in snapshot.docs) {
 
+      final String date = doc['date'].toString();
       final foodId = doc['foodId'];
-      final foodDoc = await _db.collection('food').doc(foodId).get();
-      final foodData = foodDoc.data();
-      if (foodData == null) continue;
 
-      final calories = (foodData['calories'] ?? 0).toDouble();
-      final key = _formatDate(day);
-      caloriesByDate[key] = (caloriesByDate[key] ?? 0) + calories;
+      double calories = 0;
+
+      // Nếu chưa cache thì mới query food
+      if (!foodCaloriesCache.containsKey(foodId)) {
+
+        final foodDoc =
+        await _db.collection('food').doc(foodId).get();
+
+        final foodData = foodDoc.data();
+
+        calories = (foodData?['calories'] ?? 0).toDouble();
+
+        foodCaloriesCache[foodId] = calories;
+
+      } else {
+
+        calories = foodCaloriesCache[foodId]!;
+      }
+
+      caloriesByDate[date] =
+          (caloriesByDate[date] ?? 0) + calories;
     }
 
-    final List<DateTime> days = [];
-    DateTime cursor = startDate;
-    while (!cursor.isAfter(endDate)) {
-      days.add(cursor);
+    /// Danh sách ngày
+    final List<DateTime> allDays = [];
+
+    DateTime cursor = start;
+
+    while (!cursor.isAfter(end)) {
+
+      allDays.add(cursor);
+
       cursor = cursor.add(const Duration(days: 1));
     }
 
-    final List<Map<String, dynamic>> dailyStats = days.map((day) {
-      final key = _formatDate(day);
-      final calories = caloriesByDate[key] ?? 0;
-      return {
-        'date': day,
-        'label': period == 'week'
-            ? ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'][day.weekday - 1]
-            : '${day.day}',
-        'calories': calories,
-        'isOver': targetCalories > 0 && calories > targetCalories,
-      };
-    }).toList();
+    /// Stats từng ngày
+    List<Map<String, dynamic>> dailyStats = [];
 
+    /// =======================
+    /// THỐNG KÊ THEO THÁNG
+    /// =======================
+    if (period == 'month') {
+
+      final Map<int, List<DateTime>> weekMap = {};
+
+      for (final day in allDays) {
+
+        final weekIndex =
+            ((day.day - 1) ~/ 7) + 1;
+
+        weekMap.putIfAbsent(
+          weekIndex,
+              () => [],
+        );
+
+        weekMap[weekIndex]!.add(day);
+      }
+
+      dailyStats = weekMap.entries.map((entry) {
+
+        final weekDays = entry.value;
+
+        double totalWeekCalories = 0;
+
+        bool isOver = false;
+
+        for (final day in weekDays) {
+
+          final key = _formatDate(day);
+
+          final calories =
+              caloriesByDate[key] ?? 0;
+
+          totalWeekCalories += calories;
+
+          if (targetCalories > 0 &&
+              calories > targetCalories) {
+
+            isOver = true;
+          }
+        }
+
+        final firstDay = weekDays.first.day;
+
+        final lastDay = weekDays.last.day;
+
+        return {
+
+          'label':
+          'Tuần ${entry.key}\n($firstDay-$lastDay)',
+
+          'calories': totalWeekCalories,
+
+          'hasData': totalWeekCalories > 0,
+
+          'isOver': isOver,
+        };
+
+      }).toList();
+
+    }
+
+    /// =======================
+    /// THỐNG KÊ TUẦN / RANGE
+    /// =======================
+    else {
+
+      dailyStats = allDays.map((day) {
+
+        final key = _formatDate(day);
+
+        final calories =
+            caloriesByDate[key] ?? 0;
+
+        final hasData = calories > 0;
+
+        final isOver =
+            targetCalories > 0 &&
+                calories > targetCalories;
+
+        return {
+
+          'date': day,
+
+          'label': period == 'week'
+
+              ? [
+            'T2',
+            'T3',
+            'T4',
+            'T5',
+            'T6',
+            'T7',
+            'CN',
+          ][day.weekday - 1]
+
+              : '${day.day}/${day.month}',
+
+          'calories': calories,
+
+          'hasData': hasData,
+
+          'isOver': isOver,
+        };
+
+      }).toList();
+    }
+
+    /// Tổng calories
     final totalCalories = dailyStats.fold<double>(
       0,
-      (sum, item) => sum + (item['calories'] as double),
+          (sum, item) => sum + item['calories'],
     );
 
-    final daysWithData = dailyStats.where((item) => (item['calories'] as double) > 0).length;
-    final averageCalories = dailyStats.isEmpty
+    /// Chỉ tính những ngày có dữ liệu
+    final daysWithData = dailyStats.where(
+          (e) => e['hasData'] == true,
+    ).length;
+
+    /// Trung bình calories / ngày
+    /// CHỈ tính ngày có dữ liệu
+    final averageCalories =
+    daysWithData == 0
         ? 0
-        : totalCalories / dailyStats.length;
-    final overDays = dailyStats.where((item) => item['isOver'] == true).length;
-    final maxCalories = dailyStats.isEmpty
-        ? 0
-        : dailyStats
-            .map((e) => e['calories'] as double)
-            .reduce((a, b) => a > b ? a : b);
+        : totalCalories / daysWithData;
+
+    /// Số ngày vượt mức
+    final overDays = dailyStats.where(
+          (e) => e['isOver'] == true,
+    ).length;
+
+    /// Ngày không vượt mức
+    final normalDays = dailyStats.where(
+          (e) =>
+      e['hasData'] == true &&
+          e['isOver'] == false,
+    ).length;
+
+    /// Ngày không có dữ liệu
+    final emptyDays = dailyStats.where(
+          (e) => e['hasData'] == false,
+    ).length;
 
     return {
-      'period': period,
-      'startDate': startDate,
-      'endDate': endDate,
-      'targetCalories': targetCalories,
-      'totalCalories': totalCalories,
-      'averageCalories': averageCalories,
-      'daysWithData': daysWithData,
-      'overDays': overDays,
-      'maxCalories': maxCalories,
       'dailyStats': dailyStats,
+
+      'targetCalories': targetCalories,
+
+      'totalCalories': totalCalories,
+
+      'averageCalories': averageCalories,
+
+      'daysWithData': daysWithData,
+
+      'overDays': overDays,
+
+      'normalDays': normalDays,
+
+      'emptyDays': emptyDays,
+
+      'startDate': start,
+
+      'endDate': end,
     };
+  }
+
+  /// Cập nhật bữa ăn của một mon ăn trong nhật ký
+  /// Lấy document của món theo foodId, ngày, sau đó cập nhật trường meal
+  Future<bool> updateFoodMeal({
+    required String foodId,
+    required String dateString,
+    required String newMeal,
+  }) async {
+    try {
+      // Lấy user hiện tại
+      final user = _auth.currentUser;
+      if (user == null) {
+        return false;
+      }
+
+      // Truy vấn document của món ăn này trong nhật ký theo foodId, userId, date, meal
+      final snapshot = await _db
+          .collection('food_diary')
+          .where('userId', isEqualTo: user.uid)
+          .where('date', isEqualTo: dateString)
+          .where('foodId', isEqualTo: foodId)
+          .get();
+
+      // Nếu không tìm thấy document, trả về false
+      if (snapshot.docs.isEmpty) {
+        return false;
+      }
+
+      // Lấy document đầu tiên (thường chỉ có 1)
+      final docId = snapshot.docs.first.id;
+
+      // Cập nhật trường meal thành bữa ăn mới
+      await _db.collection('food_diary').doc(docId).update({
+        'meal': newMeal,
+      });
+
+      return true;
+    } catch (e) {
+      print('Lỗi cập nhật bữa ăn: $e');
+      return false;
+    }
+  }
+
+  /// Xóa một món ăn khỏi nhật ký ăn uống
+  /// Lấy document theo foodId và ngày, sau đó xóa
+  Future<bool> deleteFoodFromDiary({
+    required String foodId,
+    required String dateString,
+  }) async {
+    try {
+      // Lấy user hiện tại
+      final user = _auth.currentUser;
+      if (user == null) {
+        return false;
+      }
+
+      // Truy vấn document của món ăn này trong nhật ký
+      final snapshot = await _db
+          .collection('food_diary')
+          .where('userId', isEqualTo: user.uid)
+          .where('date', isEqualTo: dateString)
+          .where('foodId', isEqualTo: foodId)
+          .get();
+
+      // Nếu không tìm thấy document, trả về false
+      if (snapshot.docs.isEmpty) {
+        return false;
+      }
+
+      // Lấy document đầu tiên (thường chỉ có 1)
+      final docId = snapshot.docs.first.id;
+
+      // Xóa document khỏi Firestore
+      await _db.collection('food_diary').doc(docId).delete();
+
+      return true;
+    } catch (e) {
+      print('Lỗi xóa món ăn: $e');
+      return false;
+    }
   }
 }

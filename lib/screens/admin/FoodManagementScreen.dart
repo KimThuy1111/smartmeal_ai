@@ -86,6 +86,88 @@ class _FoodManagementScreenState
     });
   }
 
+  /// Hiển thị hộp thoại xác nhận xóa
+  Future<bool> showDeleteConfirmDialog() async {
+
+    final result = await showDialog<bool>(
+
+      context: context,
+
+      builder: (context) {
+
+        return AlertDialog(
+
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+
+          title: const Row(
+            children: [
+
+              Icon(
+                Icons.warning_amber_rounded,
+                color: Colors.red,
+              ),
+
+              SizedBox(width: 10),
+
+              Text("Xác nhận xóa"),
+            ],
+          ),
+
+          content: const Text(
+            "Bạn có chắc muốn xóa món ăn này không?",
+            style: TextStyle(fontSize: 15),
+          ),
+
+          actions: [
+
+            /// Nút hủy
+            TextButton(
+
+              onPressed: () {
+
+                Navigator.pop(context, false);
+              },
+
+              child: const Text(
+                "Hủy",
+                style: TextStyle(
+                  color: Colors.grey,
+                ),
+              ),
+            ),
+
+            /// Nút xóa
+            ElevatedButton(
+
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+
+              onPressed: () {
+
+                Navigator.pop(context, true);
+              },
+
+              child: const Text(
+                "Xóa",
+                style: TextStyle(
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    return result ?? false;
+  }
+
   // Xóa một món ăn theo ID
   Future<void> deleteFood(String id) async {
     await _controller.deleteFood(id);
@@ -384,7 +466,7 @@ class _FoodManagementScreenState
                               ),
                             ],
 
-                            onSelected: (value) {
+                            onSelected: (value) async {
 
                               if (value == 1) {
 
@@ -402,10 +484,17 @@ class _FoodManagementScreenState
 
                               }
 
-                              if (value == 2) {
+                              if (value == 2)  {
 
+                                /// Hiện hộp thoại xác nhận
+                                final confirm =
+                                    await showDeleteConfirmDialog();
+
+                                /// Nếu người dùng bấm Hủy
+                                if (!confirm) return;
+
+                                /// Nếu đồng ý thì mới xóa
                                 deleteFood(food.id);
-
                               }
 
                             },

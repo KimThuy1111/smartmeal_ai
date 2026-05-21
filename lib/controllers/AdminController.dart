@@ -4,7 +4,7 @@ class AdminController {
 
   final AdminService _service = AdminService();
 
-  // Tải các thống kê cho trang quản trị
+  /// Tải thống kê tổng số món ăn, phân loại và người dùng cho trang quản trị
   Future<Map<String, int>> loadStats() async {
 
     final result = await _service.loadStats();
@@ -16,7 +16,7 @@ class AdminController {
     };
   }
 
-  // Lấy thông tin hồ sơ quản trị viên
+  /// Lấy thông tin hồ sơ quản trị viên
   Future<Map<String, dynamic>?> getAdminProfile() async {
     return await _service.getAdminProfile();
   }

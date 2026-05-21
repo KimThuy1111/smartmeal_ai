@@ -229,19 +229,6 @@ class _HomeScreenState extends State<HomeScreen> {
   // 8. Vòng tròn calo cập nhật theo lượng calo đã tiêu thụ
   // Hiển thị vòng tròn calories tổng và các thanh tiến trình dinh dưỡng.
   Widget _buildNutritionCircle() {
-    // Xác định màu sắc của vòng tròn dựa trên lượng calo tiêu thụ
-    Color circleColor = const Color(0xFF00C569); // Xanh - trong mục tiêu
-    String calorieStatus = 'Trong mục tiêu';
-    
-    // 8a. Vòng tròn calo chuyển sang màu đỏ
-    if (calories > 0 && goal.isNotEmpty) {
-      int goalValue = int.tryParse(goal.split(' ')[0]) ?? 0;
-      if (calories > goalValue) {
-        circleColor = const Color(0xFFFF6B6B); // Đỏ - vượt quá mục tiêu
-        calorieStatus = 'Vượt quá mục tiêu';
-      }
-    }
-    
     return Column(
       children: [
         Container(
@@ -249,21 +236,18 @@ class _HomeScreenState extends State<HomeScreen> {
           height: 200,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            gradient: LinearGradient(
-              colors: [
-                circleColor.withValues(alpha: 0.1),
-                circleColor.withValues(alpha: 0.05),
-              ],
+            gradient: const LinearGradient(
+              colors: [Color(0xFFF5FFFE), Color(0xFFFAFFFC)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             border: Border.all(
-              color: circleColor,
+              color: const Color(0xFFB8ECE0),
               width: 4,
             ),
             boxShadow: [
               BoxShadow(
-                color: circleColor.withValues(alpha: 0.12),
+                color: const Color(0xFF00C569).withValues(alpha: 0.12),
                 blurRadius: 16,
                 spreadRadius: 3,
                 offset: const Offset(0, 6),
@@ -275,10 +259,10 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               Text(
                 calories.toString(),
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 48,
                   fontWeight: FontWeight.bold,
-                  color: circleColor,
+                  color: Color(0xFF00C569),
                 ),
               ),
               const SizedBox(height: 2),
@@ -294,15 +278,15 @@ class _HomeScreenState extends State<HomeScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
-                  color: circleColor.withValues(alpha: 0.1),
+                  color: const Color(0xFF00C569).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
                   'Mục tiêu: $goal',
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: circleColor,
+                    color: Color(0xFF00C569),
                   ),
                 ),
               ),
@@ -418,7 +402,7 @@ class _HomeScreenState extends State<HomeScreen> {
     } else {
       final double remain = recommend - eaten;
       subtitle =
-          '${eaten.toStringAsFixed(0)} / $recommend kcal • '
+      '${eaten.toStringAsFixed(0)} / $recommend kcal • '
           '${remain >= 0 ? 'Còn lại' : 'Vượt'} '
           '${remain.abs().toStringAsFixed(0)} kcal';
     }

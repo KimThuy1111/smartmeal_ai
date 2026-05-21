@@ -210,6 +210,8 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
     }
   }
 
+
+
   Widget input(String title, TextEditingController controller,
       {TextInputType type = TextInputType.text}) {
 
@@ -227,7 +229,7 @@ class _FoodFormScreenState extends State<FoodFormScreen> {
         controller: controller,
         keyboardType: type,
         decoration: InputDecoration(
-          hintText: title,
+          labelText: title,
           border: InputBorder.none,
         ),
       ),

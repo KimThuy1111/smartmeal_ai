@@ -7,10 +7,7 @@ import '../widgets/BackgroundGradient.dart';
 class FoodDiaryStatsScreen extends StatefulWidget {
   final DateTime initialDate;
 
-  const FoodDiaryStatsScreen({
-    super.key,
-    required this.initialDate,
-  });
+  const FoodDiaryStatsScreen({super.key, required this.initialDate});
 
   @override
   State<FoodDiaryStatsScreen> createState() => _FoodDiaryStatsScreenState();
@@ -20,14 +17,27 @@ class _FoodDiaryStatsScreenState extends State<FoodDiaryStatsScreen> {
   final FoodDiaryController _controller = FoodDiaryController();
 
   bool statsLoading = true;
-  String selectedPeriod = 'week';
-  late DateTime selectedStatsDate;
+  String? statsError;
+  String selectedMode = 'week';
+  late DateTime startDate;
+  late DateTime endDate;
   Map<String, dynamic> periodStats = {};
 
   @override
   void initState() {
     super.initState();
-    selectedStatsDate = widget.initialDate;
+    /// Mặc định mở lên sẽ là tuần hiện tại
+    final now = widget.initialDate;
+
+    /// Lấy thứ 2
+    startDate = now.subtract(
+      Duration(days: now.weekday - 1),
+    );
+
+    /// Lấy chủ nhật
+    endDate = startDate.add(
+      const Duration(days: 6),
+    );
     _loadPeriodStats();
   }
 
@@ -35,18 +45,21 @@ class _FoodDiaryStatsScreenState extends State<FoodDiaryStatsScreen> {
     return '${date.day}/${date.month}/${date.year}';
   }
 
-  Future<void> _pickStatsDate() async {
-    final DateTime? picked = await showDatePicker(
+  Future<void> _pickDateRange() async {
+    final picked = await showDateRangePicker(
       context: context,
-      initialDate: selectedStatsDate,
       firstDate: DateTime(2020),
       lastDate: DateTime(2100),
+      initialDateRange: DateTimeRange(start: startDate, end: endDate),
     );
 
     if (picked != null) {
       setState(() {
-        selectedStatsDate = picked;
+        startDate = picked.start;
+
+        endDate = picked.end;
       });
+
       _loadPeriodStats();
     }
   }
@@ -54,25 +67,43 @@ class _FoodDiaryStatsScreenState extends State<FoodDiaryStatsScreen> {
   Future<void> _loadPeriodStats() async {
     setState(() {
       statsLoading = true;
+      statsError = null;
     });
 
-    final result = await _controller.loadPeriodStats(
-      referenceDate: selectedStatsDate,
-      period: selectedPeriod,
-    );
+    try {
+      final result = await _controller
+          .loadPeriodStats(
+            startDate: startDate,
+            endDate: endDate,
+            period: selectedMode,
+          )
+          .timeout(const Duration(seconds: 15));
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    setState(() {
-      periodStats = result;
-      statsLoading = false;
-    });
+      setState(() {
+        periodStats = result;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        // Dừng trạng thái tải khi Firestore lỗi hoặc mất mạng để màn hình không quay mãi.
+        statsError = 'Không tải được thống kê, vui lòng kiểm tra kết nối mạng.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          statsLoading = false;
+        });
+      }
+    }
   }
 
   void _changePeriod(String period) {
-    if (selectedPeriod == period) return;
+    if (selectedMode == period) return;
     setState(() {
-      selectedPeriod = period;
+      selectedMode = period;
     });
     _loadPeriodStats();
   }
@@ -153,7 +184,7 @@ class _FoodDiaryStatsScreenState extends State<FoodDiaryStatsScreen> {
                     ),
                     IconButton(
                       icon: const Icon(Icons.calendar_month),
-                      onPressed: _pickStatsDate,
+                      onPressed: _pickDateRange,
                     ),
                   ],
                 ),
@@ -164,7 +195,7 @@ class _FoodDiaryStatsScreenState extends State<FoodDiaryStatsScreen> {
                     vertical: 14,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.92),
+                    color: Colors.white.withValues(alpha: 0.92),
                     borderRadius: BorderRadius.circular(18),
                     boxShadow: const [
                       BoxShadow(color: Colors.black12, blurRadius: 6),
@@ -175,14 +206,11 @@ class _FoodDiaryStatsScreenState extends State<FoodDiaryStatsScreen> {
                     children: [
                       const Text(
                         'Ngày tham chiếu',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
-                        ),
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        _formatDate(selectedStatsDate),
+                        '${_formatDate(startDate)} - ${_formatDate(endDate)}',
                         style: const TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w700,
@@ -204,9 +232,10 @@ class _FoodDiaryStatsScreenState extends State<FoodDiaryStatsScreen> {
                 const SizedBox(height: 16),
                 _buildStatsHeader(),
                 const SizedBox(height: 12),
-                _buildStatsChart(),
-                const SizedBox(height: 12),
                 _buildStatsSummary(),
+                const SizedBox(height: 12),
+                _buildStatsChart(),
+
               ],
             ),
           ),
@@ -216,8 +245,6 @@ class _FoodDiaryStatsScreenState extends State<FoodDiaryStatsScreen> {
   }
 
   Widget _buildStatsHeader() {
-    final weekActive = selectedPeriod == 'week';
-    final monthActive = selectedPeriod == 'month';
 
     return Container(
       padding: const EdgeInsets.all(6),
@@ -225,24 +252,81 @@ class _FoodDiaryStatsScreenState extends State<FoodDiaryStatsScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
         boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 5),
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 5,
+          ),
         ],
       ),
       child: Row(
         children: [
+
           Expanded(
             child: _periodChip(
               label: 'Tuần',
-              active: weekActive,
-              onTap: () => _changePeriod('week'),
+              active: selectedMode == 'week',
+              onTap: () {
+
+                final now = DateTime.now();
+
+                setState(() {
+
+                  selectedMode = 'week';
+
+                  startDate = now.subtract(
+                    Duration(days: now.weekday - 1),
+                  );
+
+                  endDate = startDate.add(
+                    const Duration(days: 6),
+                  );
+                });
+
+                _loadPeriodStats();
+              },
             ),
           ),
+
           const SizedBox(width: 8),
+
           Expanded(
             child: _periodChip(
               label: 'Tháng',
-              active: monthActive,
-              onTap: () => _changePeriod('month'),
+              active: selectedMode == 'month',
+              onTap: () {
+
+                final now = DateTime.now();
+
+                setState(() {
+
+                  selectedMode = 'month';
+
+                  startDate =
+                      DateTime(now.year, now.month, 1);
+
+                  endDate =
+                      DateTime(now.year, now.month + 1, 0);
+                });
+
+                _loadPeriodStats();
+              },
+            ),
+          ),
+
+          const SizedBox(width: 8),
+
+          Expanded(
+            child: _periodChip(
+              label: 'Chọn ngày',
+              active: selectedMode == 'range',
+              onTap: () async {
+
+                setState(() {
+                  selectedMode = 'range';
+                });
+
+                await _pickDateRange();
+              },
             ),
           ),
         ],
@@ -260,11 +344,12 @@ class _FoodDiaryStatsScreenState extends State<FoodDiaryStatsScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          gradient: active
-              ? const LinearGradient(
-                  colors: [Color(0xFF00C569), Color(0xFF6BE394)],
-                )
-              : null,
+          gradient:
+              active
+                  ? const LinearGradient(
+                    colors: [Color(0xFF00C569), Color(0xFF6BE394)],
+                  )
+                  : null,
           color: active ? null : Colors.white,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
@@ -292,6 +377,10 @@ class _FoodDiaryStatsScreenState extends State<FoodDiaryStatsScreen> {
       );
     }
 
+    if (statsError != null) {
+      return _buildStatsError();
+    }
+
     final stats = _dailyStats;
     if (stats.isEmpty) {
       return Container(
@@ -305,13 +394,10 @@ class _FoodDiaryStatsScreenState extends State<FoodDiaryStatsScreen> {
       );
     }
 
-    final maxValue = stats.fold<double>(
-      _periodTargetCalories,
-      (max, item) {
-        final calories = (item['calories'] as num).toDouble();
-        return calories > max ? calories : max;
-      },
-    );
+    final maxValue = stats.fold<double>(_periodTargetCalories, (max, item) {
+      final calories = (item['calories'] as num).toDouble();
+      return calories > max ? calories : max;
+    });
     final chartMaxY = (maxValue <= 0 ? 100.0 : maxValue * 1.2).ceilToDouble();
 
     return Container(
@@ -320,20 +406,19 @@ class _FoodDiaryStatsScreenState extends State<FoodDiaryStatsScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 6),
-        ],
+        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
       ),
       child: Column(
         children: [
           Row(
             children: [
-              const Text(
-                'Calo theo ngày',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                ),
+              Text(
+                selectedMode == 'month'
+                    ? 'Thống kê tháng ${startDate.month}'
+                    : selectedMode == 'week'
+                    ? 'Thống kê tuần'
+                    : 'Thống kê khoảng ngày',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
               ),
               const Spacer(),
               _legendDot(const Color(0xFF00C569), 'Đạt'),
@@ -349,16 +434,17 @@ class _FoodDiaryStatsScreenState extends State<FoodDiaryStatsScreen> {
                 minY: 0,
                 alignment: BarChartAlignment.spaceAround,
                 extraLinesData: ExtraLinesData(
-                  horizontalLines: _periodTargetCalories > 0
-                      ? [
-                          HorizontalLine(
-                            y: _periodTargetCalories,
-                            color: const Color(0xFF1E88E5),
-                            strokeWidth: 1.4,
-                            dashArray: [6, 4],
-                          ),
-                        ]
-                      : [],
+                  horizontalLines:
+                      _periodTargetCalories > 0
+                          ? [
+                            HorizontalLine(
+                              y: _periodTargetCalories,
+                              color: const Color(0xFF1E88E5),
+                              strokeWidth: 1.4,
+                              dashArray: [6, 4],
+                            ),
+                          ]
+                          : [],
                 ),
                 barTouchData: BarTouchData(
                   enabled: true,
@@ -378,7 +464,7 @@ class _FoodDiaryStatsScreenState extends State<FoodDiaryStatsScreen> {
                   horizontalInterval: chartMaxY / 4,
                   getDrawingHorizontalLine: (value) {
                     return FlLine(
-                      color: Colors.grey.withOpacity(0.18),
+                      color: Colors.grey.withValues(alpha: 0.18),
                       strokeWidth: 1,
                     );
                   },
@@ -398,7 +484,7 @@ class _FoodDiaryStatsScreenState extends State<FoodDiaryStatsScreen> {
                       getTitlesWidget: (value, meta) {
                         return Text(
                           value.toInt().toString(),
-                          style: const TextStyle(fontSize: 10),
+                          style: const TextStyle(fontSize: 10, height: 1.3,),
                         );
                       },
                     ),
@@ -426,7 +512,9 @@ class _FoodDiaryStatsScreenState extends State<FoodDiaryStatsScreen> {
                 ),
                 borderData: FlBorderData(
                   show: true,
-                  border: Border.all(color: Colors.grey.withOpacity(0.12)),
+                  border: Border.all(
+                    color: Colors.grey.withValues(alpha: 0.12),
+                  ),
                 ),
                 barGroups: List.generate(stats.length, (index) {
                   final calories = (stats[index]['calories'] as num).toDouble();
@@ -452,6 +540,41 @@ class _FoodDiaryStatsScreenState extends State<FoodDiaryStatsScreen> {
     );
   }
 
+  Widget _buildStatsError() {
+    return Container(
+      height: 250,
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.wifi_off, color: Colors.red, size: 38),
+          const SizedBox(height: 10),
+          Text(
+            statsError!,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 14,
+              color: Colors.black87,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextButton.icon(
+            onPressed: _loadPeriodStats,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Thử lại'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _legendDot(Color color, String label) {
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -465,16 +588,13 @@ class _FoodDiaryStatsScreenState extends State<FoodDiaryStatsScreen> {
           ),
         ),
         const SizedBox(width: 4),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 11),
-        ),
+        Text(label, style: const TextStyle(fontSize: 11)),
       ],
     );
   }
 
   Widget _buildStatsSummary() {
-    if (statsLoading) {
+    if (statsLoading || statsError != null) {
       return const SizedBox.shrink();
     }
 
@@ -484,7 +604,7 @@ class _FoodDiaryStatsScreenState extends State<FoodDiaryStatsScreen> {
       physics: const NeverScrollableScrollPhysics(),
       crossAxisSpacing: 10,
       mainAxisSpacing: 10,
-      childAspectRatio: 1.35,
+      childAspectRatio: 1.7,
       children: [
         _summaryCard(
           title: 'Tổng calo',
@@ -529,9 +649,7 @@ class _FoodDiaryStatsScreenState extends State<FoodDiaryStatsScreen> {
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 6),
-        ],
+        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
         border: Border.all(color: const Color(0xFFE2F4E8)),
       ),
       child: Column(
@@ -563,7 +681,7 @@ class _FoodDiaryStatsScreenState extends State<FoodDiaryStatsScreen> {
               Text(
                 value,
                 style: TextStyle(
-                  fontSize: 30,
+                  fontSize: 22,
                   height: 1,
                   fontWeight: FontWeight.bold,
                   color: accentColor,
@@ -574,10 +692,7 @@ class _FoodDiaryStatsScreenState extends State<FoodDiaryStatsScreen> {
                 padding: const EdgeInsets.only(bottom: 3),
                 child: Text(
                   subtitle,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: Colors.black87,
-                  ),
+                  style: const TextStyle(fontSize: 13, color: Colors.black87),
                 ),
               ),
             ],

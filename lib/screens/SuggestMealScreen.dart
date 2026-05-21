@@ -475,7 +475,7 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
   Widget _buildRatingButtons() {
     if (liked != null) {
       return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 12),
         decoration: BoxDecoration(
           color: liked! ? Colors.green.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1),
           border: Border.all(
@@ -490,9 +490,9 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
             Icon(
               liked! ? Icons.favorite : Icons.thumb_down,
               color: liked! ? Colors.green : Colors.red,
-              size: 24,
+              size: 20,
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             Text(
               liked! ? 'Thực đơn này phù hợp với bạn' : 'Thực đơn này thực sự phù hợp với bạn',
               style: TextStyle(
@@ -509,78 +509,142 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          // Nút Thích
-          InkWell(
-            onTap: () => _rateMenu(true),
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0x9979EEF2), Color(0x9978F09C)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+
+          /// =========================
+          /// NÚT PHÙ HỢP
+          /// =========================
+          Expanded(
+            child: InkWell(
+              onTap: () => _rateMenu(true),
+              borderRadius: BorderRadius.circular(12),
+
+              child: Container(
+
+                alignment: Alignment.center,
+
+                padding: const EdgeInsets.symmetric(
+                  vertical: 12,
                 ),
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.cyan.withValues(alpha: 0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
+
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [
+                      Color(0x9979EEF2),
+                      Color(0x9978F09C),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                ],
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.favorite_border, color: Colors.white, size: 20),
-                  SizedBox(width: 8),
-                  Text(
-                    'Phù hợp',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
+
+                  borderRadius: BorderRadius.circular(12),
+
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.cyan.withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
                     ),
-                  ),
-                ],
+                  ],
+                ),
+
+                child: const Row(
+
+                  mainAxisAlignment: MainAxisAlignment.center,
+
+                  children: [
+
+                    Icon(
+                      Icons.favorite_border,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+
+                    SizedBox(width: 6),
+
+                    Flexible(
+                      child: Text(
+                        'Phù hợp',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-          // Nút Không thích
-          InkWell(
-            onTap: () => _rateMenu(false),
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.grey[200],
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey[400]!, width: 1.5),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withValues(alpha: 0.2),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
+
+          const SizedBox(width: 12),
+
+          /// =========================
+          /// NÚT KHÔNG PHÙ HỢP
+          /// =========================
+          Expanded(
+            child: InkWell(
+              onTap: () => _rateMenu(false),
+              borderRadius: BorderRadius.circular(12),
+
+              child: Container(
+
+                alignment: Alignment.center,
+
+                padding: const EdgeInsets.symmetric(
+                  vertical: 12,
+                ),
+
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+
+                  borderRadius: BorderRadius.circular(12),
+
+                  border: Border.all(
+                    color: Colors.grey[400]!,
+                    width: 1.5,
                   ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.thumb_down_outlined, color: Colors.grey[700], size: 20),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Không phù hợp',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey[700],
+
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withValues(alpha: 0.2),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
                     ),
-                  ),
-                ],
+                  ],
+                ),
+
+                child: Row(
+
+                  mainAxisAlignment: MainAxisAlignment.center,
+
+                  children: [
+
+                    Icon(
+                      Icons.thumb_down_outlined,
+                      color: Colors.grey[700],
+                      size: 18,
+                    ),
+
+                    const SizedBox(width: 6),
+
+                    Flexible(
+                      child: Text(
+                        'Không phù hợp',
+
+                        overflow: TextOverflow.ellipsis,
+
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey[700],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

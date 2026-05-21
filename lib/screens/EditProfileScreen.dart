@@ -226,12 +226,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   // Tạo ô nhập liệu dùng chung cho form chỉnh sửa hồ sơ
-  Widget buildInput(String hint, TextEditingController controller) {
+  Widget buildInput(String text, TextEditingController controller) {
     return TextField(
       controller: controller,
       keyboardType: TextInputType.number,
       decoration: InputDecoration(
-        hintText: hint,
+        labelText: text,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(20),
         ),
