@@ -253,29 +253,195 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
 
   /// Tạo item món ăn và điều hướng sang màn hình chi tiết khi nhấn vào.
   Widget _buildFoodItem(FoodDiary item) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: ListTile(
-        leading: item.image != null && item.image!.isNotEmpty
-            ? Image.network(
-                item.image!,
-                width: 60,
-                height: 60,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => const Icon(Icons.fastfood),
-              )
-            : const Icon(Icons.fastfood),
-        title: Text(item.name),
-        subtitle: Text('${item.calories.toStringAsFixed(0)} cal'),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => FoodDetailScreen(foodId: item.foodId),
-            ),
-          );
-        },
+    return GestureDetector(
+      onLongPress: () => _showDeleteConfirmDialog(item),
+      onSecondaryTap: () => _showUpdateMealDialog(item),
+      child: Card(
+        margin: const EdgeInsets.only(bottom: 10),
+        child: ListTile(
+          leading: item.image != null && item.image!.isNotEmpty
+              ? Image.network(
+                  item.image!,
+                  width: 60,
+                  height: 60,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => const Icon(Icons.fastfood),
+                )
+              : const Icon(Icons.fastfood),
+          title: Text(item.name),
+          subtitle: Text('${item.calories.toStringAsFixed(0)} cal'),
+          trailing: PopupMenuButton(
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                onTap: () => _showUpdateMealDialog(item),
+                child: const Row(
+                  children: [
+                    Icon(Icons.edit, size: 18),
+                    SizedBox(width: 8),
+                    Text('Đổi bữa ăn'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                onTap: () => _showDeleteConfirmDialog(item),
+                child: const Row(
+                  children: [
+                    Icon(Icons.delete, size: 18, color: Colors.red),
+                    SizedBox(width: 8),
+                    Text('Xóa', style: TextStyle(color: Colors.red)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => FoodDetailScreen(foodId: item.foodId),
+              ),
+            );
+          },
+        ),
       ),
     );
+  }
+
+  /// Hiển thị hộp thoại xác nhận xóa món ăn
+  /// Sau khi xóa, tải lại dữ liệu nhật ký
+  void _showDeleteConfirmDialog(FoodDiary item) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Xóa món ăn'),
+          content: Text('Bạn có chắc muốn xóa ${item.name} khỏi nhật ký?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Hủy'),
+            ),
+            TextButton(
+              onPressed: () {
+                _deleteFood(item);
+                Navigator.pop(context);
+              },
+              child: const Text('Xóa', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Xóa một món ăn khỏi nhật ký
+  /// Gọi controller, hiển thị thông báo kết quả, rồi tải lại dữ liệu
+  Future<void> _deleteFood(FoodDiary item) async {
+    final dateString = selectedDate.toString().substring(0, 10);
+    final success = await _controller.deleteFoodFromDiary(
+      foodId: item.foodId,
+      dateString: dateString,
+    );
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Đã xóa ${item.name} khỏi nhật ký'),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      _loadDiary();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Xóa thất bại'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  /// Hiển thị hộp thoại chọn bữa ăn mới để cập nhật
+  /// Cho phép chọn: Bữa sáng, Bữa trưa, hoặc Bữa tối
+  void _showUpdateMealDialog(FoodDiary item) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return SimpleDialog(
+          title: Text('Đổi bữa ăn'),
+          children: [
+            SimpleDialogOption(
+              onPressed: () {
+                _updateFoodMeal(item, 'breakfast');
+                Navigator.pop(context);
+              },
+              child: const Text('Bữa sáng'),
+            ),
+            SimpleDialogOption(
+              onPressed: () {
+                _updateFoodMeal(item, 'lunch');
+                Navigator.pop(context);
+              },
+              child: const Text('Bữa trưa'),
+            ),
+            SimpleDialogOption(
+              onPressed: () {
+                _updateFoodMeal(item, 'dinner');
+                Navigator.pop(context);
+              },
+              child: const Text('Bữa tối'),
+            ),
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Hủy', style: TextStyle(color: Colors.green)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Cập nhật bữa ăn của một món ăn
+  /// Gọi controller, hiển thị thông báo kết quả, rồi tải lại dữ liệu
+  Future<void> _updateFoodMeal(FoodDiary item, String newMeal) async {
+    // Kiểm tra nếu bữa ăn mới trùng với bữa ăn hiện tại, không cần cập nhật
+    if (newMeal == item.meal) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Đã là bữa ăn hiện tại'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    final dateString = selectedDate.toString().substring(0, 10);
+    final success = await _controller.updateFoodMeal(
+      foodId: item.foodId,
+      dateString: dateString,
+      newMeal: newMeal,
+    );
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Đã cập nhật ${item.name}'),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      _loadDiary();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cập nhật thất bại'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 }
