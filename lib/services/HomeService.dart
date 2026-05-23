@@ -8,34 +8,6 @@ class HomeService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  /// Lấy JWT access token từ backend dựa trên Firebase user hiện tại
-  Future<String?> _getAccessToken() async {
-    final user = _auth.currentUser;
-    if (user == null) {
-      return null;
-    }
-
-    try {
-      final tokenResponse = await http.post(
-        Uri.parse('http://10.0.2.2:8000/token'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'firebase_uid': user.uid,
-          'email': user.email,
-        }),
-      );
-
-      if (tokenResponse.statusCode == 200) {
-        final data = jsonDecode(tokenResponse.body) as Map<String, dynamic>;
-        return data['access_token'] as String?;
-      }
-    } catch (_) {
-      return null;
-    }
-
-    return null;
-  }
-
   // Tải dữ liệu hồ sơ và nhu cầu dinh dưỡng hàng ngày
   Future<Map<String, dynamic>> loadUserData() async {
     final user = _auth.currentUser;
@@ -70,16 +42,12 @@ class HomeService {
       carb = nutrition['carb']?.toDouble() ?? 0;
       fat = nutrition['Fat']?.toDouble() ?? 0;
     } else {
-      // Nếu chưa có, gọi API tính TDEE
-      final accessToken = await _getAccessToken();
-
       try {
         // 3 Gửi yêu cầu tính TDEE đến backend
         final response = await http.post(
-          Uri.parse('http://10.0.2.2:8000/tdee'),
+          Uri.parse('https://smartmeal-ai-production.up.railway.app/tdee'),
           headers: {
             'Content-Type': 'application/json',
-            if (accessToken != null) 'Authorization': 'Bearer $accessToken',
           },
           body: jsonEncode({
             'age': data['age'],

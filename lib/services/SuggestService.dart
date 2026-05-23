@@ -100,7 +100,8 @@ class SuggestService {
     try {
       // Gửi yêu cầu POST đến endpoint API
       final response = await http.post(
-        Uri.parse('http://10.0.2.2:8000/recommend'),
+        // Uri.parse('http://10.0.2.2:8000/recommend'),
+        Uri.parse('https://smartmeal-ai-production.up.railway.app/recommend'),
         headers: {
           'Content-Type': 'application/json',
         },
