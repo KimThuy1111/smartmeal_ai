@@ -26,19 +26,38 @@ class _FoodDiaryStatsScreenState extends State<FoodDiaryStatsScreen> {
   @override
   void initState() {
     super.initState();
-    /// Mặc định mở lên sẽ là tuần hiện tại
+    // Mặc định mở lên sẽ là tuần hiện tại
     final now = widget.initialDate;
-
-    /// Lấy thứ 2
-    startDate = now.subtract(
-      Duration(days: now.weekday - 1),
-    );
-
-    /// Lấy chủ nhật
-    endDate = startDate.add(
-      const Duration(days: 6),
-    );
+    startDate = now.subtract(Duration(days: now.weekday - 1)); // Thứ 2
+    endDate = startDate.add(const Duration(days: 6)); // chủ nhật
     _loadPeriodStats();
+  }
+
+  Future<void> _loadPeriodStats() async {
+    setState(() {
+      statsLoading = true;
+      statsError = null;
+    });
+    try {
+      final result = await _controller
+          .loadPeriodStats(startDate: startDate, endDate: endDate, period: selectedMode)
+          .timeout(const Duration(seconds: 15));
+      if (!mounted) return;
+      setState(() {
+        periodStats = result;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        statsError = 'Không tải được thống kê, vui lòng kiểm tra kết nối mạng.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          statsLoading = false;
+        });
+      }
+    }
   }
 
   String _formatDate(DateTime date) {
@@ -64,41 +83,7 @@ class _FoodDiaryStatsScreenState extends State<FoodDiaryStatsScreen> {
     }
   }
 
-  Future<void> _loadPeriodStats() async {
-    setState(() {
-      statsLoading = true;
-      statsError = null;
-    });
 
-    try {
-      final result = await _controller
-          .loadPeriodStats(
-            startDate: startDate,
-            endDate: endDate,
-            period: selectedMode,
-          )
-          .timeout(const Duration(seconds: 15));
-
-      if (!mounted) return;
-
-      setState(() {
-        periodStats = result;
-      });
-    } catch (e) {
-      if (!mounted) return;
-
-      setState(() {
-        // Dừng trạng thái tải khi Firestore lỗi hoặc mất mạng để màn hình không quay mãi.
-        statsError = 'Không tải được thống kê, vui lòng kiểm tra kết nối mạng.';
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          statsLoading = false;
-        });
-      }
-    }
-  }
 
   void _changePeriod(String period) {
     if (selectedMode == period) return;
@@ -317,7 +302,7 @@ class _FoodDiaryStatsScreenState extends State<FoodDiaryStatsScreen> {
 
           Expanded(
             child: _periodChip(
-              label: 'Chọn ngày',
+              label: 'Ngày',
               active: selectedMode == 'range',
               onTap: () async {
 
@@ -399,6 +384,14 @@ class _FoodDiaryStatsScreenState extends State<FoodDiaryStatsScreen> {
       return calories > max ? calories : max;
     });
     final chartMaxY = (maxValue <= 0 ? 100.0 : maxValue * 1.2).ceilToDouble();
+    
+    // Tính interval để chỉ hiển thị các số nguyên hoặc phân chia hợp lý
+    double interval = 1.0;
+    if (chartMaxY > 10) {
+      interval = (chartMaxY / 5).ceilToDouble();
+    } else if (chartMaxY > 5) {
+      interval = (chartMaxY / 4).ceilToDouble();
+    }
 
     return Container(
       height: 260,
@@ -414,10 +407,10 @@ class _FoodDiaryStatsScreenState extends State<FoodDiaryStatsScreen> {
             children: [
               Text(
                 selectedMode == 'month'
-                    ? 'Thống kê tháng ${startDate.month}'
+                    ? 'Thống kê theo tháng ${startDate.month}'
                     : selectedMode == 'week'
-                    ? 'Thống kê tuần'
-                    : 'Thống kê khoảng ngày',
+                    ? 'Thống kê theo tuần'
+                    : 'Thống kê theo ngày',
                 style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
               ),
               const Spacer(),
@@ -461,7 +454,7 @@ class _FoodDiaryStatsScreenState extends State<FoodDiaryStatsScreen> {
                 gridData: FlGridData(
                   show: true,
                   drawVerticalLine: false,
-                  horizontalInterval: chartMaxY / 4,
+                  horizontalInterval: interval,
                   getDrawingHorizontalLine: (value) {
                     return FlLine(
                       color: Colors.grey.withValues(alpha: 0.18),
@@ -480,7 +473,7 @@ class _FoodDiaryStatsScreenState extends State<FoodDiaryStatsScreen> {
                     sideTitles: SideTitles(
                       showTitles: true,
                       reservedSize: 38,
-                      interval: chartMaxY / 4,
+                      interval: interval,
                       getTitlesWidget: (value, meta) {
                         return Text(
                           value.toInt().toString(),

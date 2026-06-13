@@ -1,10 +1,12 @@
 import '../services/UserService.dart';
+import '../services/HomeService.dart';
 import '../models/User.dart';
 import 'dart:io';
 
 class UserController {
 
   final UserService _service = UserService();
+  final HomeService _homeService = HomeService();
 
   // Lấy dữ liệu người dùng
   Future<Map<String, dynamic>?> getUserData() async {
@@ -44,6 +46,29 @@ class UserController {
       weight: weightDouble,
       height: heightDouble,
       gender: gender,
+      activity: activity,
+      goal: goal,
+    );
+  }
+
+  // Tính lại TDEE sau khi người dùng cập nhật thông tin cá nhân
+  Future<Map<String, dynamic>> recalculateTDEE({
+    required String age,
+    required String gender,
+    required String height,
+    required String weight,
+    required String activity,
+    required String goal,
+  }) async {
+    int ageInt = int.parse(age);
+    double heightDouble = double.parse(height);
+    double weightDouble = double.parse(weight);
+
+    return await _homeService.recalculateTDEE(
+      age: ageInt,
+      gender: gender,
+      height: heightDouble,
+      weight: weightDouble,
       activity: activity,
       goal: goal,
     );
@@ -112,5 +137,27 @@ class UserController {
       year: year,
     );
   }
+
+  // Lấy thống kê người dùng theo ngày trong khoảng từ startDate đến endDate
+  Future<Map<String, dynamic>> getUserStatsByDay({
+    required DateTime startDate,
+    required DateTime endDate,
+  }) async {
+    return await _service.getUserStatsByDay(
+      startDate: startDate,
+      endDate: endDate,
+    );
+  }
+
+  // Lấy danh sách người dùng đăng ký trong khoảng từ startDate đến endDate
+  // Future<List<User>> getUsersByDay({
+  //   required DateTime startDate,
+  //   required DateTime endDate,
+  // }) async {
+  //   return await _service.getUsersByDay(
+  //     startDate: startDate,
+  //     endDate: endDate,
+  //   );
+  // }
 
 }

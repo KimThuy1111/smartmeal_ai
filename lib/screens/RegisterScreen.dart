@@ -23,8 +23,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool showPassword = false;
   bool showConfirmPassword = false;
   bool isLoading = false;
+  bool agreeToPolicy = false;
 
   Future<void> _register() async {
+    // Kiểm tra xem người dùng đã đồng ý với chính sách bảo mật chưa
+    if (!agreeToPolicy) {
+      Notifier.showError(context, 'Vui lòng đồng ý với chính sách bảo mật của hệ thống!');
+      return;
+    }
+
     final String email = emailController.text.trim();
     final String password = passwordController.text.trim();
     final String confirm = confirmController.text.trim();
@@ -217,27 +224,58 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 },
               ),
               const SizedBox(height: 20),
+              // Checkbox: Đồng ý với chính sách bảo mật
+              Row(
+                children: [
+                  Checkbox(
+                    value: agreeToPolicy,
+                    onChanged: (value) {
+                      setState(() {
+                        agreeToPolicy = value ?? false;
+                      });
+                    },
+                    activeColor: const Color(0xFF78F09C),
+                  ),
+                  const Expanded(
+                    child: Text(
+                      'Tôi đồng ý với chính sách bảo mật của hệ thống',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF666666),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
               if (isLoading) const CircularProgressIndicator(),
               const SizedBox(height: 10),
               GestureDetector(
                 // 2. Người dùng nhấn "Đăng ký".
-                onTap: _register,
+                onTap: agreeToPolicy ? _register : null,
                 child: Container(
                   height: 50,
                   width: double.infinity,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF79EEF2), Color(0xFF78F09C)],
-                    ),
+                    gradient: agreeToPolicy
+                        ? const LinearGradient(
+                            colors: [Color(0xFF79EEF2), Color(0xFF78F09C)],
+                          )
+                        : LinearGradient(
+                            colors: [
+                              const Color(0xFF79EEF2).withOpacity(0.4),
+                              const Color(0xFF78F09C).withOpacity(0.4),
+                            ],
+                          ),
                     borderRadius: BorderRadius.circular(25),
                   ),
-                  child: const Text(
+                  child: Text(
                     'ĐĂNG KÝ',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      color: Colors.black,
+                      color: agreeToPolicy ? Colors.black : Colors.grey,
                     ),
                   ),
                 ),

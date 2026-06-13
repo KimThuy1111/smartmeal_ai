@@ -45,31 +45,48 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Tải dữ liệu trang chủ từ controller và cập nhật UI.
   Future<void> _loadData() async {
-    final data = await _controller.loadHomeData();
+    try {
+      final data = await _controller.loadHomeData();
+      if (!mounted) return;
+      setState(() {
+        name = (data['name'] as String?) ?? '';
+        goal = (data['goal'] as String?) ?? '';
+        calories = (data['calories'] as int?) ?? 0;
 
-    setState(() {
-      name = data['name'];
-      goal = data['goal'];
-      calories = data['calories'];
+        protein = _toDouble(data['protein']);
+        carb = _toDouble(data['carb']);
+        fat = _toDouble(data['fat']);
 
-      protein = data['protein'];
-      carb = data['carb'];
-      fat = data['fat'];
+        breakfastFoods = List<String>.from(data['breakfastFoods'] as List? ?? []);
+        lunchFoods = List<String>.from(data['lunchFoods'] as List? ?? []);
+        dinnerFoods = List<String>.from(data['dinnerFoods'] as List? ?? []);
 
-      breakfastFoods = List<String>.from(data['breakfastFoods']);
-      lunchFoods = List<String>.from(data['lunchFoods']);
-      dinnerFoods = List<String>.from(data['dinnerFoods']);
+        breakfastCal = _toDouble(data['breakfastCal']);
+        lunchCal = _toDouble(data['lunchCal']);
+        dinnerCal = _toDouble(data['dinnerCal']);
 
-      breakfastCal = data['breakfastCal'];
-      lunchCal = data['lunchCal'];
-      dinnerCal = data['dinnerCal'];
+        eatenProtein = _toDouble(data['eatenProtein']);
+        eatencarb = _toDouble(data['eatencarb']);
+        eatenFat = _toDouble(data['eatenFat']);
+      });
+    } catch (e) {
+      print('Error loading home data: $e');
+      if (mounted) {
+        setState(() {
+          name = '';
+          goal = '';
+          calories = 0;
+        });
+      }
+    }
+  }
 
-      eatenProtein = data['eatenProtein'];
-      eatencarb = data['eatencarb'];
-      eatenFat = data['eatenFat'];
-    });
-
-    // 10. Dữ liệu dinh dưỡng sẽ được hiển thị trên trang chủ.
+  /// Helper function để safely convert values thành double
+  double _toDouble(dynamic value) {
+    if (value == null) return 0;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    return 0;
   }
 
   @override

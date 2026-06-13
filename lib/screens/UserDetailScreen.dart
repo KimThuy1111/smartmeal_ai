@@ -130,6 +130,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                       _infoTile('Gender', u.gender),
                       _infoTile('Activity', u.activity),
                       _infoTile('Goal', u.goal),
+                      _infoTile('Ngày đăng ký', '${u.createdAt.day}/${u.createdAt.month}/${u.createdAt.year}'),
                       const SizedBox(height: 10),
                       Container(
                         padding: const EdgeInsets.all(14),

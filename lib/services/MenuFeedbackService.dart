@@ -4,8 +4,9 @@ import 'package:intl/intl.dart';
 import '../models/Food.dart';
 import '../models/SuggestedMenu.dart';
 import '../models/User.dart';
+import 'BaseService.dart';
 
-class MenuFeedbackService {
+class MenuFeedbackService extends BaseService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   DateTime _startOfDay(DateTime date) => DateTime(date.year, date.month, date.day);
@@ -60,6 +61,8 @@ class MenuFeedbackService {
 
     for (final doc in docs) {
       final data = doc.data();
+      if (data['status'] != 1) continue; // Chỉ lấy active
+      
       final dateStr = data['date'];
       final liked = data['liked'];
 
@@ -129,6 +132,8 @@ class MenuFeedbackService {
 
     for (final doc in docs) {
       final data = doc.data();
+      if (data['status'] != 1) continue; // Chỉ lấy active
+      
       final dateStr = data['date'];
       final liked = data['liked'];
 
@@ -180,13 +185,17 @@ class MenuFeedbackService {
     };
   }
 
-  // Tải danh sách menu gợi ý và tổng hợp số lượt thích/không thích/chưa đánh giá.
+  /// Lấy danh sách thực đơn (chỉ active)
   Future<Map<String, dynamic>> loadMenus() async {
     int likeCount = 0;
     int dislikeCount = 0;
     int notRatedCount = 0;
 
-    final snap = await _db.collection('suggested_menus').get();
+    // Query chỉ lấy status = 1
+    final snap = await _db
+        .collection('suggested_menus')
+        .where('status', isEqualTo: 1)
+        .get();
 
     final List<Map<String, dynamic>> result = [];
     final Map<String, User> userCache = {};
@@ -215,7 +224,7 @@ class MenuFeedbackService {
     );
 
     for (final doc in userDocs) {
-      if (doc.exists) {
+      if (doc.exists && doc.data()?['status'] == 1) {
         userCache[doc.id] = User.fromMap(doc.data()!, doc.id);
       }
     }
@@ -225,7 +234,7 @@ class MenuFeedbackService {
     );
 
     for (final doc in foodDocs) {
-      if (doc.exists) {
+      if (doc.exists && doc.data()?['status'] == 1) {
         foodCache[doc.id] = Food.fromMap(
           doc.data() as Map<String, dynamic>,
           doc.id,
@@ -282,11 +291,16 @@ class MenuFeedbackService {
     };
   }
 
+  /// Lấy thống kê trend (chỉ active)
   Future<Map<String, dynamic>> loadTrendStats({
     required String period,
     int selectedIndex = 0,
   }) async {
-    final snap = await _db.collection('suggested_menus').get();
+    // Query chỉ lấy status = 1
+    final snap = await _db
+        .collection('suggested_menus')
+        .where('status', isEqualTo: 1)
+        .get();
     final docs = snap.docs;
 
     final now = DateTime.now();

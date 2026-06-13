@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:smartmeal_ai/controllers/FoodController.dart';
+import 'package:smartmeal_ai/screens/FoodDiaryScreen.dart';
 
 import '../models/Food.dart';
+import '../models/FoodCategory.dart';
 import '../utils/notifier.dart';
 import '../widgets/FoodItemCard.dart';
 import 'FoodDetailScreen.dart';
@@ -24,15 +26,12 @@ class _SearchFoodScreenState extends State<SearchFoodScreen> {
   int currentPage = 0;
   final int pageSize = 10;
   bool isLoading = true;
-
   Timer? _debounce;
-
   int get totalPages => (foods.length / pageSize).ceil();
 
   @override
   void initState() {
     super.initState();
-    // 1. Mở giao diện trang tra cứu món ăn
     _loadTopFoods();
   }
 
@@ -43,50 +42,47 @@ class _SearchFoodScreenState extends State<SearchFoodScreen> {
     super.dispose();
   }
 
-  // 2a.1 Yêu cầu lấy danh sách món ăn nổi bật
-  // 2a.2 Xử lý yêu cầu
+  // Tải danh sách món ăn nổi bật khi vừa mở trang
   Future<void> _loadTopFoods() async {
     setState(() => isLoading = true);
 
-    // 2a.3 Truy vấn dữ liệu món ăn
-    final result = await _controller.getTopFoods(10);
+    // Truy vấn dữ liệu món ăn nổi bật
+    final result = await _controller.getTopFoods(15);
 
     setState(() {
       foods = result;
-      currentPage = 0;
       isLoading = false;
     });
   }
 
-  // 3.1 Yêu cầu tìm kiếm món ăn
+  //Tìm kiếm món ăn theo từ khóa
   void _searchFood(String keyword) {
     if (_debounce?.isActive ?? false) {
       _debounce!.cancel();
     }
 
-    // 3.2 Xử lí yêu cầu tìm kiếm
+    // Đợi 400ms sau khi người dùng ngừng gõ mới query
     _debounce = Timer(const Duration(milliseconds: 400), () async {
       final value = keyword.trim();
 
       if (value.isEmpty) {
+        // Nếu xóa từ khóa, tải lại danh sách nổi bật
         _loadTopFoods();
         return;
       }
-
       setState(() => isLoading = true);
 
-      // 3.3 Truy vấn dữ liệu món ăn
+      // Truy vấn tìm kiếm từ khóa
       final result = await _controller.searchFood(value);
 
       setState(() {
         foods = result;
-        currentPage = 0;
         isLoading = false;
       });
     });
   }
 
-  // Lấy danh sách món ăn theo trang hiện tại.
+  // Lấy danh sách món ăn của trang hiện tại dựa trên kích thước trang
   List<Food> get _paginatedFoods {
     final int start = currentPage * pageSize;
     int end = start + pageSize;
@@ -102,31 +98,29 @@ class _SearchFoodScreenState extends State<SearchFoodScreen> {
     return foods.sublist(start, end);
   }
 
-  // 4.3 Thêm món vào bữa đã chọn / 3a.2 Thêm món vào bữa được gợi ý
+  // Thêm món vào bữa đã chọn
   Future<void> _addFoodToDiary(Food food, String meal) async {
     try {
-      // 5.1 Lưu món ăn vào nhật ký
-      await _controller.addFoodToDiary(
-        foodId: food.id,
-        meal: meal,
-      );
+      // Lưu món ăn vào nhật ký
+      await _controller.addFoodToDiary(foodId: food.id, meal: meal);
 
-      // 6. Thông báo "Thêm món ăn thành công"
+      // Thông báo "Thêm món ăn thành công"
       Notifier.showNotify(context, 'Thêm thành công');
-      // Chuyển sang màn hình gợi ý thực đơn
+
+      // Chuyển sang màn hình nhật ký ăn uống
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => SuggestMealScreen(addedFoodId: food.id),
+          builder: (_) => FoodDiaryScreen(),
         ),
       );
     } catch (e) {
-      // 5a. Hiển thị lỗi hệ thống
+      // Hiển thị lỗi hệ thống
       Notifier.showError(context, 'Lỗi khi thêm món ăn');
     }
   }
 
-  // 4.1 Hiển thị cửa sổ chọn bữa ăn
+  // Hiển thị cửa sổ chọn bữa ăn
   void _showMealPickerDialog(Food food) {
     showDialog(
       context: context,
@@ -144,7 +138,7 @@ class _SearchFoodScreenState extends State<SearchFoodScreen> {
     );
   }
 
-  // 4.2 Chọn bữa ăn và 4.3 Thêm món vào bữa đã chọn
+  // Chọn bữa ăn
   Widget _mealButton(String title, String value, Food food) {
     return ListTile(
       title: Text(title),
@@ -163,6 +157,7 @@ class _SearchFoodScreenState extends State<SearchFoodScreen> {
       body: Column(
         children: [
           const SizedBox(height: 24),
+          // Header: Nút quay lại + Tiêu đề
           Row(
             children: [
               GestureDetector(
@@ -183,9 +178,9 @@ class _SearchFoodScreenState extends State<SearchFoodScreen> {
               const SizedBox(width: 24),
             ],
           ),
+          // Search textfield
           Padding(
             padding: const EdgeInsets.all(16),
-            // 2. Nhập từ khóa tìm kiếm
             child: TextField(
               controller: searchController,
               onChanged: _searchFood,
@@ -201,33 +196,84 @@ class _SearchFoodScreenState extends State<SearchFoodScreen> {
               ),
             ),
           ),
+
+          // Danh sách món ăn
           Expanded(
             child: isLoading
                 ? const Center(child: CircularProgressIndicator())
-                // 3a. Hiển thị không tìm thấy món phù hợp
                 : foods.isEmpty
                 ? const Center(child: Text('Không có dữ liệu'))
-                // 4. Hiển thị danh sách món ăn
-                : ListView.builder(
+                : Column(
+              children: [
+                Expanded(
+                  child: ListView.builder(
                     itemCount: _paginatedFoods.length,
-                    itemBuilder: (_, i) => _buildFoodItem(_paginatedFoods[i]),
+                    itemBuilder: (_, i) =>
+                        _buildFoodItem(_paginatedFoods[i]),
                   ),
+                ),
+
+                // Thanh phân trang
+                if (totalPages > 1)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 8,
+                    ),
+                    child: Row(
+                      mainAxisAlignment:
+                      MainAxisAlignment.center,
+                      children: [
+
+                        IconButton(
+                          icon: const Icon(Icons.chevron_left),
+                          onPressed: currentPage > 0
+                              ? () {
+                            setState(() {
+                              currentPage--;
+                            });
+                          }
+                              : null,
+                        ),
+
+                        Text(
+                          'Trang ${currentPage + 1}/$totalPages',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+
+                        IconButton(
+                          icon: const Icon(Icons.chevron_right),
+                          onPressed:
+                          currentPage < totalPages - 1
+                              ? () {
+                            setState(() {
+                              currentPage++;
+                            });
+                          }
+                              : null,
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  // Hiển thị item món ăn và các thao tác xem chi tiết/thêm vào nhật ký.
+  // Hiển thị item món ăn
   Widget _buildFoodItem(Food food) {
     return FoodItemCard(
       id: food.id,
       name: food.name,
       image: food.image,
       calories: food.calories,
-      // 5.1 Chọn món cần xem
+      // Chọn món cần xem
       onTap: () {
-        // 5.2 Chuyển sang màn hình chi tiết
+        // Chuyển sang màn hình chi tiết
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -237,7 +283,7 @@ class _SearchFoodScreenState extends State<SearchFoodScreen> {
       },
       trailing: IconButton(
         icon: const Icon(Icons.add_circle, color: Colors.green),
-        // 3. Chọn icon (+) của món cần thêm vào nhật ký / 3a Chọn icon (+) của món cần thêm vào nhật ký
+        // Chọn icon (+) của món cần thêm vào nhật ký
         onPressed: () => _showMealPickerDialog(food),
       ),
     );
