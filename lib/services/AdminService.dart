@@ -1,15 +1,26 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-class AdminService {
+import 'BaseService.dart';
+
+class AdminService extends BaseService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  // Tải thống kê tổng số món ăn, phân loại và người dùng.
+  /// Lấy thống kê (chỉ active)
   Future<Map<String, int>> loadStats() async {
-    final foodSnap = await _db.collection('food').get();
-    final userSnap = await _db.collection('users').get();
-    final categorySnap = await _db.collection('food_category').get();
+    final foodSnap = await _db
+        .collection('food')
+        .where('status', isEqualTo: 1)
+        .get();
+    final userSnap = await _db
+        .collection('users')
+        .where('status', isEqualTo: 1)
+        .get();
+    final categorySnap = await _db
+        .collection('food_category')
+        .where('status', isEqualTo: 1)
+        .get();
 
     return {
       'totalFoods': foodSnap.docs.length,
@@ -18,7 +29,7 @@ class AdminService {
     };
   }
 
-  // Lấy thông tin hồ sơ của tài khoản admin đang đăng nhập.
+  /// Lấy thông tin hồ sơ admin (chỉ active)
   Future<Map<String, dynamic>?> getAdminProfile() async {
     final user = _auth.currentUser;
     if (user == null) {
@@ -26,7 +37,12 @@ class AdminService {
     }
 
     final doc = await _db.collection('users').doc(user.uid).get();
+    final data = doc.data();
+    
+    if (data?['status'] != 1) {
+      return null;
+    }
 
-    return doc.data();
+    return data;
   }
 }

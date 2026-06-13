@@ -12,9 +12,7 @@ import '../widgets/Footer.dart';
 import 'FoodDetailScreen.dart';
 
 class SuggestMealScreen extends StatefulWidget {
-  final String? addedFoodId;
-
-  const SuggestMealScreen({super.key, this.addedFoodId});
+  const SuggestMealScreen({super.key});
 
   @override
   State<SuggestMealScreen> createState() => _SuggestMealScreenState();
@@ -34,8 +32,7 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
   Map<int, Map<String, dynamic>> foodCache = {};
   late DateTime selectedDate;
   late String today;
-  
-  // FIX: Track actual calorie intake to properly detect "enough calories"
+
   double totalCalories = 0;
   double targetCalories = 0;
 
@@ -44,16 +41,12 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
     super.initState();
     selectedDate = DateTime.now();
     today = selectedDate.toString().substring(0, 10);
-    // 1. Mở màn hình gợi ý thực đơn
     _initData();
   }
 
-  // 2.1 Lấy calories, chỉ số dinh dưỡng, lịch sử ăn / 2.3 Lấy calories, lịch sử món đã ăn
-  // Khởi tạo dữ liệu thực đơn từ cache, Firestore hoặc gọi API khi cần.
+  // Lấy calories, chỉ số dinh dưỡng, lịch sử ăn
   Future<void> _initData() async {
-    // FIX: Load today's actual calorie intake first
     await _loadTodayCalories();
-    
     if (_controller.isCacheValid(today)) {
       setState(() {
         menu = _controller.cachedMenu;
@@ -67,137 +60,56 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
       await _fetchMenu();
       return;
     }
-
-    if (widget.addedFoodId != null && menu != null) {
-      if (!_isFoodInMenu(widget.addedFoodId!)) {
-        await _fetchMenu();
-      }
-    }
   }
 
-  // 2.3 Lấy calories, lịch sử món đã ăn
-  // FIX: Load today's actual calorie intake from food diary
+  // Lấy calories, lịch sử món đã ăn
   Future<void> _loadTodayCalories() async {
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return;
+    final summary = await _controller.loadTodaySummary();
 
-      final db = FirebaseFirestore.instance;
-      
-      // 7.2 So sánh với lượng calo khuyến nghị
-      // Lấy mục tiêu calories của người dùng
-      final userDoc = await db.collection('users').doc(user.uid).get();
-      final userData = userDoc.data();
-      if (userData != null && userData['nutrition'] != null) {
-        final nutrition = userData['nutrition'];
-        targetCalories = (nutrition['Calories'] ?? 0).toDouble();
-      }
-
-      // 7.1 Tính tổng calo tiêu thụ
-      // Lấy lượng calories đã tiêu thụ vào nhật ký món ăn hôm nay
-      final snapshot = await db
-          .collection('food_diary')
-          .where('userId', isEqualTo: user.uid)
-          .where('date', isEqualTo: today)
-          .get();
-
-      totalCalories = 0;
-      for (var doc in snapshot.docs) {
-        final foodId = doc['foodId'];
-        final foodDoc = await db.collection('food').doc(foodId).get();
-        if (foodDoc.exists) {
-          final calories = (foodDoc.data()?['calories'] ?? 0).toDouble();
-          totalCalories += calories;
-        }
-      }
-
-      setState(() {});
-    } catch (e) {
-      print('Error loading today calories: $e');
-    }
+    setState(() {
+      targetCalories = summary["targetCalories"];
+      totalCalories = summary["totalCalories"];
+    });
   }
 
-  // 2.2 Lấy dữ liệu từ Firebase Storage
-  // Tải thực đơn gần nhất trong ngày của người dùng từ Firestore.
+  // Tải thực đơn gần nhất trong ngày
   Future<void> _loadMenuFromFirestore() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      return;
-    }
+    setState(() {
+      isLoading = true;
+    });
 
-    setState(() => isLoading = true);
+    final result = await _controller.loadMenuFromFirestore(today);
 
-    final snapshot = await FirebaseFirestore.instance
-        .collection('suggested_menus')
-        .where('userId', isEqualTo: user.uid)
-        .where('date', isEqualTo: today)
-        .orderBy('createdAt', descending: true)
-        .limit(1)
-        .get();
-
-    if (snapshot.docs.isEmpty) {
+    if (result == null) {
       setState(() {
-        isLoading = false;
         liked = null;
         currentMenuDocId = null;
+        isLoading = false;
       });
       return;
     }
-
-    final doc = snapshot.docs.first;
-    currentMenuDocId = doc.id;
-    
-    final Map<String, List<Map<String, dynamic>>> loadedMenu = {
-      'Breakfast': [],
-      'Lunch': [],
-      'Dinner': [],
-    };
-
-    final suggested = SuggestedMenu.fromMap(doc.data());
-
-    for (final String meal in suggested.menu.keys) {
-      final futures = suggested.menu[meal]!.map((id) {
-        return FirebaseFirestore.instance.collection('food').doc(id).get();
-      }).toList();
-
-      final docs = await Future.wait(futures);
-
-      for (final d in docs) {
-        if (!d.exists) {
-          continue;
-        }
-
-        final data = d.data()!;
-        data['id'] = d.id;
-        loadedMenu[meal]!.add(data);
-      }
-    }
-
-    _controller.setCache(loadedMenu, today);
-
-    if (!mounted) {
-      return;
-    }
+    _controller.setCache(result['menu'], today);
 
     setState(() {
-      menu = loadedMenu;
-      liked = suggested.liked;
+      menu = result['menu'];
+      liked = result['liked'];
+      currentMenuDocId = result['docId'];
+
       isLoading = false;
     });
   }
 
-  // 3. Kiểm tra lượng calo đã ăn trong ngày / 4. Gọi API gợi ý thực đơn mới, map dữ liệu đầy đủ và lưu lại.
+  // Kiểm tra lượng calo đã ăn trong ngày 
   Future<void> _fetchMenu() async {
     setState(() => isLoading = true);
 
-    // 4.1 Lấy calories đã tiêu thụ trong từng bữa
+    // Lấy calories đã tiêu thụ trong từng bữa
     final calories = await _controller.loadTodayCalories();
-    // Lấy danh sách STT các món đã ăn trong 3 ngày qua
     final recentHistory = await _controller.loadRecentFoodHistory();
     final userData = await _userController.getUserData();
     final excludedFoods = await _controller.getExcludedFoods();
 
-    // 4.2 Gửi yêu cầu đến API
+    // Gửi yêu cầu đến API
     final data = await _controller.fetchMenu(
       userData!,
       calories['breakfast'] ?? 0,
@@ -208,47 +120,18 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
     );
 
     if (data.isEmpty) {
-      // 3a. Hiển thị "Lỗi kết nối"
+      // Hiển thị "Lỗi kết nối"
       setState(() => isLoading = false);
       return;
     }
 
-    // 5. Phân tích dữ liệu dinh dưỡng và lịch sử ăn uống để tạo thực đơn phù hợp
-    // 6. Nhận thực đơn từ API
+    // Phân tích dữ liệu dinh dưỡng và lịch sử ăn uống để tạo thực đơn phù hợp
     final aiMenu = data['menu'];
-    final Map<String, List<Map<String, dynamic>>> fullMenu = {};
-
-    for (final String meal in ['Breakfast', 'Lunch', 'Dinner']) {
-      final List items = aiMenu[meal] ?? [];
-      final List<Map<String, dynamic>> foods = [];
-
-      for (final item in items) {
-        final snapshot = await FirebaseFirestore.instance
-            .collection('food')
-            .where('stt', isEqualTo: item['stt'])
-            .limit(1)
-            .get();
-
-        if (snapshot.docs.isEmpty) {
-          continue;
-        }
-
-        final doc = snapshot.docs.first;
-        final data = doc.data();
-        data['id'] = doc.id;
-        foods.add(data);
-      }
-
-      fullMenu[meal] = foods;
-    }
-
-    // 7.1 Tạo instance để lưu trữ
-    // 7.2 Trả về instance / 7.3 Lưu dữ liệu
+    final fullMenu = await _controller.buildFullMenu(aiMenu);
     final docId = await _controller.saveMenu(fullMenu);
     if (docId != null) {
       _controller.setCache(fullMenu, today);
     } else {
-      // 7a. Hiển thị "Lưu thất bại"
       Notifier.showError(context, 'Lưu thất bại');
     }
 
@@ -256,7 +139,7 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
       return;
     }
 
-    // 8. Hiển thị danh sách thực đơn
+    // Hiển thị danh sách thực đơn
     setState(() {
       menu = fullMenu;
       currentMenuDocId = docId;
@@ -291,36 +174,22 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
     }
 
     try {
-      await FirebaseFirestore.instance
-          .collection('suggested_menus')
-          .doc(currentMenuDocId)
-          .update({'liked': like});
+      await _controller.rateMenu(menuId: currentMenuDocId!, liked: like);
 
-      setState(() => liked = like);
+      setState(() {
+        liked = like;
+      });
+
       Notifier.showNotify(context, 'Đã gửi đánh giá');
     } catch (_) {
       Notifier.showNotify(context, 'Gửi đánh giá thất bại');
     }
   }
 
-  // 3a.2 Thêm món vào bữa được gợi ý
+  // Thêm món vào bữa được gợi ý
   Future<void> _addFood(String id, String meal) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      return;
-    }
+    await _controller.addFoodToDiary(foodId: id, meal: meal, date: today);
 
-    // 5.1 Lưu món ăn vào nhật ký
-    // 5.2 Ghi dữ liệu món ăn
-    await FirebaseFirestore.instance.collection('food_diary').add({
-      'userId': user.uid,
-      'foodId': id,
-      'meal': meal,
-      'date': today,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
-
-    // 6. Thông báo "Thêm món ăn thành công"
     Notifier.showNotify(context, 'Đã thêm vào nhật ký');
   }
 
@@ -367,7 +236,10 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
             children: [
               // Header với nút điều hướng
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 12,
+                ),
                 child: Row(
                   children: [
                     IconButton(
@@ -403,7 +275,7 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
               ),
               // Refresh button
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
@@ -415,34 +287,42 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
                 ),
               ),
               Expanded(
-                child: isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : menu == null
+                child:
+                    isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : menu == null
                         ? const Center(child: Text('Không có dữ liệu'))
                         : SingleChildScrollView(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              children: [
-                                const Text(
-                                  'Các món chỉ mang tính tham khảo',
-                                  style: TextStyle(color: Colors.red),
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            children: [
+                              const Text(
+                                'Các món chỉ mang tính tham khảo',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                              _buildMeal(
+                                'Bữa sáng',
+                                menu!['Breakfast']!,
+                                'breakfast',
+                              ),
+                              _buildMeal('Bữa trưa', menu!['Lunch']!, 'lunch'),
+                              _buildMeal('Bữa tối', menu!['Dinner']!, 'dinner'),
+                              if (!_hasMenuFood())
+                                const Padding(
+                                  padding: EdgeInsets.only(top: 40),
+                                  child: Text('Bạn đã ăn đủ calo 🎉'),
                                 ),
-                                _buildMeal('Bữa sáng', menu!['Breakfast']!, 'breakfast'),
-                                _buildMeal('Bữa trưa', menu!['Lunch']!, 'lunch'),
-                                _buildMeal('Bữa tối', menu!['Dinner']!, 'dinner'),
-                                if (!_hasMenuFood())
-                                  const Padding(
-                                    padding: EdgeInsets.only(top: 40),
-                                    child: Text('Bạn đã ăn đủ calo 🎉'),
+                              if (_hasFullMeal())
+                                Padding(
+                                  padding: const EdgeInsets.only(
+                                    top: 32,
+                                    bottom: 16,
                                   ),
-                                if (_hasFullMeal())
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 32, bottom: 16),
-                                    child: _buildRatingButtons(),
-                                  ),
-                              ],
-                            ),
+                                  child: _buildRatingButtons(),
+                                ),
+                            ],
                           ),
+                        ),
               ),
             ],
           ),
@@ -465,9 +345,17 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
       'Tháng 9',
       'Tháng 10',
       'Tháng 11',
-      'Tháng 12'
+      'Tháng 12',
     ];
-    final days = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'];
+    final days = [
+      'Thứ 2',
+      'Thứ 3',
+      'Thứ 4',
+      'Thứ 5',
+      'Thứ 6',
+      'Thứ 7',
+      'Chủ nhật',
+    ];
     return '${date.day} ${months[date.month - 1]}, ${days[date.weekday - 1]}';
   }
 
@@ -477,7 +365,10 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 12),
         decoration: BoxDecoration(
-          color: liked! ? Colors.green.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1),
+          color:
+              liked!
+                  ? Colors.green.withValues(alpha: 0.1)
+                  : Colors.red.withValues(alpha: 0.1),
           border: Border.all(
             color: liked! ? Colors.green : Colors.red,
             width: 2,
@@ -494,7 +385,9 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
             ),
             const SizedBox(width: 10),
             Text(
-              liked! ? 'Thực đơn này phù hợp với bạn' : 'Thực đơn này thực sự phù hợp với bạn',
+              liked!
+                  ? 'Thực đơn này phù hợp với bạn'
+                  : 'Thực đơn này thực sự phù hợp với bạn',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -510,29 +403,22 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
-
-          /// =========================
-          /// NÚT PHÙ HỢP
-          /// =========================
+          
+          // NÚT PHÙ HỢP
+          
           Expanded(
             child: InkWell(
               onTap: () => _rateMenu(true),
               borderRadius: BorderRadius.circular(12),
 
               child: Container(
-
                 alignment: Alignment.center,
 
-                padding: const EdgeInsets.symmetric(
-                  vertical: 12,
-                ),
+                padding: const EdgeInsets.symmetric(vertical: 12),
 
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [
-                      Color(0x9979EEF2),
-                      Color(0x9978F09C),
-                    ],
+                    colors: [Color(0x9979EEF2), Color(0x9978F09C)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -549,16 +435,10 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
                 ),
 
                 child: const Row(
-
                   mainAxisAlignment: MainAxisAlignment.center,
 
                   children: [
-
-                    Icon(
-                      Icons.favorite_border,
-                      color: Colors.white,
-                      size: 18,
-                    ),
+                    Icon(Icons.favorite_border, color: Colors.white, size: 18),
 
                     SizedBox(width: 6),
 
@@ -581,31 +461,25 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
 
           const SizedBox(width: 12),
 
-          /// =========================
-          /// NÚT KHÔNG PHÙ HỢP
-          /// =========================
+          
+          // NÚT KHÔNG PHÙ HỢP
+          
           Expanded(
             child: InkWell(
               onTap: () => _rateMenu(false),
               borderRadius: BorderRadius.circular(12),
 
               child: Container(
-
                 alignment: Alignment.center,
 
-                padding: const EdgeInsets.symmetric(
-                  vertical: 12,
-                ),
+                padding: const EdgeInsets.symmetric(vertical: 12),
 
                 decoration: BoxDecoration(
                   color: Colors.grey[200],
 
                   borderRadius: BorderRadius.circular(12),
 
-                  border: Border.all(
-                    color: Colors.grey[400]!,
-                    width: 1.5,
-                  ),
+                  border: Border.all(color: Colors.grey[400]!, width: 1.5),
 
                   boxShadow: [
                     BoxShadow(
@@ -617,11 +491,9 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
                 ),
 
                 child: Row(
-
                   mainAxisAlignment: MainAxisAlignment.center,
 
                   children: [
-
                     Icon(
                       Icons.thumb_down_outlined,
                       color: Colors.grey[700],
@@ -665,10 +537,7 @@ class _SuggestMealScreenState extends State<SuggestMealScreen> {
         const SizedBox(height: 20),
         Text(
           title,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         ...foods.map((f) {
           return FoodItemCard(

@@ -10,7 +10,6 @@ class EditProfileScreen extends StatefulWidget {
 }
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
-
   final UserController _userController = UserController();
 
   final nameController = TextEditingController();
@@ -57,6 +56,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   // Kiểm tra dữ liệu và cập nhật thông tin hồ sơ
   Future<void> updateProfile() async {
     try {
+      // 1️⃣ Cập nhật thông tin người dùng vào Firestore
       await _userController.updateUser(
         name: nameController.text,
         age: ageController.text,
@@ -67,20 +67,35 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         goal: goal,
       );
 
-      Notifier.showNotify(context, "Cập nhật thành công");
+      // 2️⃣ Tính lại TDEE và lưu nutrition vào Firestore
+      final tdeeResult = await _userController.recalculateTDEE(
+        age: ageController.text,
+        gender: gender,
+        height: heightController.text,
+        weight: weightController.text,
+        activity: activity,
+        goal: goal,
+      );
+
+      if (tdeeResult['success'] == true) {
+        Notifier.showNotify(context, "Cập nhật thành công");
+      } else {
+        Notifier.showNotify(
+          context,
+          "Cập nhật hồ sơ thành công, nhưng lỗi tính TDEE",
+        );
+      }
+
       Navigator.pop(context);
     } catch (e) {
-      Notifier.showError(context, "Cập nhật thất bại");
+      Notifier.showError(context, "Cập nhật thất bại: ${e.toString()}");
     }
   }
 
   @override
   Widget build(BuildContext context) {
-
     if (isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     return Scaffold(
@@ -104,7 +119,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 // Thanh tiêu đề
                 Row(
                   children: [
-
                     IconButton(
                       icon: const Icon(Icons.chevron_left),
                       onPressed: () {
@@ -145,8 +159,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
                 const Align(
                   alignment: Alignment.centerLeft,
-                  child: Text("Giới tính",
-                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  child: Text(
+                    "Giới tính",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
 
                 Row(
@@ -170,25 +186,34 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
                 const Align(
                   alignment: Alignment.centerLeft,
-                  child: Text("Mức độ vận động",
-                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  child: Text(
+                    "Mức độ vận động",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
 
-                buildDropdown(activity,
-                    ["Ít vận động", "Vận động nhẹ", "Vận động vừa phải", "Vận động nhiều"],
-                        (v) => setState(() => activity = v)),
+                buildDropdown(activity, [
+                  "Ít vận động",
+                  "Vận động nhẹ",
+                  "Vận động vừa phải",
+                  "Vận động nhiều",
+                ], (v) => setState(() => activity = v)),
 
                 const SizedBox(height: 20),
 
                 const Align(
                   alignment: Alignment.centerLeft,
-                  child: Text("Mục tiêu cân nặng",
-                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  child: Text(
+                    "Mục tiêu cân nặng",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
 
-                buildDropdown(goal,
-                    ["Giảm cân", "Duy trì cân nặng", "Tăng cân"],
-                        (v) => setState(() => goal = v)),
+                buildDropdown(goal, [
+                  "Giảm cân",
+                  "Duy trì cân nặng",
+                  "Tăng cân",
+                ], (v) => setState(() => goal = v)),
 
                 const SizedBox(height: 30),
 
@@ -232,32 +257,24 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       keyboardType: TextInputType.number,
       decoration: InputDecoration(
         labelText: text,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(20)),
       ),
     );
   }
 
   // Tạo danh sách chọn dạng dropdown cho giới tính, vận động và mục tiêu
   Widget buildDropdown(
-      String value,
-      List<String> items,
-      Function(String) onChanged) {
-
+    String value,
+    List<String> items,
+    Function(String) onChanged,
+  ) {
     return DropdownButtonFormField<String>(
       value: value,
-      items: items
-          .map((e) => DropdownMenuItem(
-                value: e,
-                child: Text(e),
-              ))
-          .toList(),
+      items:
+          items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
       onChanged: (v) => onChanged(v!),
       decoration: InputDecoration(
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(20)),
       ),
     );
   }

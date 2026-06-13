@@ -36,13 +36,24 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
     super.initState();
     _loadDiary();
   }
-
-  /// Định dạng ngày hiển thị theo kiểu dd/mm/yyyy.
+  // Tải dữ liệu nhật ký ăn uống theo ngày đang được chọn.
+  Future<void> _loadDiary() async {
+    final result = await _controller.loadDiary(selectedDate);
+    setState(() {
+      breakfast = result['breakfast'];
+      lunch = result['lunch'];
+      dinner = result['dinner'];
+      totalCalories = result['totalCalories'];
+      targetCalories = result['targetCalories'];
+      isOver = result['isOver'];
+    });
+  }
+  // Định dạng ngày hiển thị theo kiểu dd/mm/yyyy.
   String _formatDate(DateTime date) {
     return '${date.day}/${date.month}/${date.year}';
   }
 
-  /// Mở bộ chọn ngày và tải lại nhật ký nếu người dùng chọn ngày mới.
+  // Mở bộ chọn ngày và tải lại nhật ký nếu người dùng chọn ngày mới.
   Future<void> _pickDate() async {
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -60,19 +71,7 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
     }
   }
 
-  /// Tải dữ liệu nhật ký ăn uống theo ngày đang được chọn.
-  Future<void> _loadDiary() async {
-    final result = await _controller.loadDiary(selectedDate);
 
-    setState(() {
-      breakfast = result['breakfast'];
-      lunch = result['lunch'];
-      dinner = result['dinner'];
-      totalCalories = result['totalCalories'];
-      targetCalories = result['targetCalories'];
-      isOver = result['isOver'];
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -232,7 +231,7 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
     );
   }
 
-  /// Hiển thị danh sách món ăn cho một bữa cụ thể.
+  // Hiển thị danh sách món ăn cho một bữa cụ thể.
   Widget _buildMealSection(String title, List<FoodDiary> list) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -251,11 +250,11 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
     );
   }
 
-  /// Tạo item món ăn và điều hướng sang màn hình chi tiết khi nhấn vào.
+  // Tạo item món ăn và điều hướng sang màn hình chi tiết khi nhấn vào.
   Widget _buildFoodItem(FoodDiary item) {
     return GestureDetector(
       onLongPress: () => _showDeleteConfirmDialog(item),
-      onSecondaryTap: () => _showUpdateMealDialog(item),
+      onSecondaryTap: () => _showFoodOptionsDialog(item),
       child: Card(
         margin: const EdgeInsets.only(bottom: 10),
         child: ListTile(
@@ -273,12 +272,12 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
           trailing: PopupMenuButton(
             itemBuilder: (context) => [
               PopupMenuItem(
-                onTap: () => _showUpdateMealDialog(item),
+                onTap: () => _showFoodOptionsDialog(item),
                 child: const Row(
                   children: [
                     Icon(Icons.edit, size: 18),
                     SizedBox(width: 8),
-                    Text('Đổi bữa ăn'),
+                    Text('Cập nhật'),
                   ],
                 ),
               ),
@@ -307,8 +306,7 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
     );
   }
 
-  /// Hiển thị hộp thoại xác nhận xóa món ăn
-  /// Sau khi xóa, tải lại dữ liệu nhật ký
+  // Hiển thị hộp thoại xác nhận xóa món ăn
   void _showDeleteConfirmDialog(FoodDiary item) {
     showDialog(
       context: context,
@@ -334,8 +332,7 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
     );
   }
 
-  /// Xóa một món ăn khỏi nhật ký
-  /// Gọi controller, hiển thị thông báo kết quả, rồi tải lại dữ liệu
+  // Xóa một món ăn khỏi nhật ký
   Future<void> _deleteFood(FoodDiary item) async {
     final dateString = selectedDate.toString().substring(0, 10);
     final success = await _controller.deleteFoodFromDiary(
@@ -363,14 +360,61 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
     }
   }
 
-  /// Hiển thị hộp thoại chọn bữa ăn mới để cập nhật
-  /// Cho phép chọn: Bữa sáng, Bữa trưa, hoặc Bữa tối
+  // Cho phép người dùng chọn thao tác muốn thực hiện
+  void _showFoodOptionsDialog(FoodDiary item) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return SimpleDialog(
+          title: Text('${item.name}'),
+          children: [
+            // Đổi bữa ăn (sáng/trưa/tối)
+            SimpleDialogOption(
+              onPressed: () {
+                Navigator.pop(context);
+                _showUpdateMealDialog(item);
+              },
+              child: const Row(
+                children: [
+                  Icon(Icons.restaurant),
+                  SizedBox(width: 12),
+                  Text('Cập nhật bữa ăn'),
+                ],
+              ),
+            ),
+            // Đổi ngày ăn
+            SimpleDialogOption(
+              onPressed: () {
+                Navigator.pop(context);
+                _showUpdateDateDialog(item);
+              },
+              child: const Row(
+                children: [
+                  Icon(Icons.calendar_today),
+                  SizedBox(width: 12),
+                  Text('Cập nhật ngày'),
+                ],
+              ),
+            ),
+
+            // Hủy
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Hủy', style: TextStyle(color: Colors.green)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Hiển thị hộp thoại chọn Bữa sáng, Bữa trưa, hoặc Bữa tối
   void _showUpdateMealDialog(FoodDiary item) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return SimpleDialog(
-          title: Text('Đổi bữa ăn'),
+          title: Text('Đổi bữa ăn - ${item.name}'),
           children: [
             SimpleDialogOption(
               onPressed: () {
@@ -403,32 +447,58 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
     );
   }
 
-  /// Cập nhật bữa ăn của một món ăn
-  /// Gọi controller, hiển thị thông báo kết quả, rồi tải lại dữ liệu
+  // Hiển thị bộ chọn ngày để cập nhật ngày ăn của món
+  Future<void> _showUpdateDateDialog(FoodDiary item) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+
+    if (picked != null && picked != selectedDate) {
+      // Người dùng chọn ngày mới khác với ngày hiện tại
+      final oldDateString = selectedDate.toString().substring(0, 10);
+      final newDateString = picked.toString().substring(0, 10);
+
+      _updateFoodDate(item, oldDateString, newDateString);
+    }
+  }
+
+  // Cập nhật bữa ăn của một món ăn
   Future<void> _updateFoodMeal(FoodDiary item, String newMeal) async {
     // Kiểm tra nếu bữa ăn mới trùng với bữa ăn hiện tại, không cần cập nhật
     if (newMeal == item.meal) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Đã là bữa ăn hiện tại'),
-          backgroundColor: Colors.orange,
-          duration: Duration(seconds: 2),
-        ),
+        const SnackBar(content: Text('Đã là bữa ăn hiện tại'), backgroundColor: Colors.orange, duration: Duration(seconds: 2)),
       );
       return;
     }
-
     final dateString = selectedDate.toString().substring(0, 10);
-    final success = await _controller.updateFoodMeal(
-      foodId: item.foodId,
-      dateString: dateString,
-      newMeal: newMeal,
-    );
+    final success = await _controller.updateFoodMeal(foodId: item.foodId, dateString: dateString, newMeal: newMeal);
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Đã cập nhật bữa ăn ${item.name}'), backgroundColor: Colors.green, duration: const Duration(seconds: 2)),
+      );
+      _loadDiary();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cập nhật bữa ăn thất bại'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
 
+  // Cập nhật ngày ăn của một món ăn
+  Future<void> _updateFoodDate(FoodDiary item, String oldDateString, String newDateString) async {
+    final success = await _controller.updateFoodDate(foodId: item.foodId, oldDateString: oldDateString, newDateString: newDateString);
     if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Đã cập nhật ${item.name}'),
+          content: Text('Đã chuyển ${item.name} sang ngày ${newDateString.split('-')[2]}/${newDateString.split('-')[1]}'),
           backgroundColor: Colors.green,
           duration: const Duration(seconds: 2),
         ),
@@ -437,7 +507,7 @@ class _FoodDiaryScreenState extends State<FoodDiaryScreen> {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Cập nhật thất bại'),
+          content: Text('Cập nhật ngày ăn thất bại'),
           backgroundColor: Colors.red,
           duration: Duration(seconds: 2),
         ),

@@ -104,6 +104,16 @@ class _RegisterStep2ScreenState extends State<RegisterStep2Screen> {
         data: user.toMap(),
       );
 
+      // Tính TDEE ngay sau khi tạo hồ sơ
+      await _userController.recalculateTDEE(
+        age: ageController.text,
+        gender: gender,
+        height: heightController.text,
+        weight: weightController.text,
+        activity: activity,
+        goal: goal,
+      );
+
       // 6. Hệ thống thông báo lưu thông tin thành công
       Notifier.showNotify(context, 'Lưu thông tin thành công!');
 

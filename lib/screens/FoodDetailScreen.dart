@@ -20,7 +20,7 @@ class FoodDetailScreen extends StatefulWidget {
 class _FoodDetailScreenState extends State<FoodDetailScreen> {
 
   final FoodController _foodController = FoodController();
-  final FoodCategoryController _categoryController = FoodCategoryController();
+  // final FoodCategoryController _categoryController = FoodCategoryController();
 
   Food? food;
   String? categoryName;
@@ -32,35 +32,16 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
     loadFood();
   }
 
-  /// 5.3 Yêu cầu xem thông tin món ăn
-  /// 5.4 Xử lí yêu cầu xem chi tiết món ăn
+  // Xem thông tin món ăn
   Future<void> loadFood() async {
-    // 5.5 Truy vấn thông tin chi tiết món ăn
     final result = await _foodController.getFoodById(widget.foodId);
-
-    String? catName;
-    if (result?.categoryId != null && result!.categoryId!.isNotEmpty) {
-      try {
-        final categories = await _categoryController.getAllCategories();
-        for (var cat in categories) {
-          if (cat.id == result.categoryId) {
-            catName = cat.name;
-            break;
-          }
-        }
-      } catch (_) {
-        catName = null;
-      }
-    }
-
     setState(() {
       food = result;
-      categoryName = catName;
       isLoading = false;
     });
   }
 
-  /// Tạo danh sách các chỉ số dinh dưỡng bổ sung
+  // Tạo danh sách các chỉ số dinh dưỡng bổ sung
   List<Widget> buildNutritionList() {
     if (food == null) return [];
 
@@ -187,7 +168,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
                   ),
                 const SizedBox(height: 20),
 
-                /// Hiển thị tổng calories
+                // Hiển thị tổng calories
                 Container(
                   width: 150,
                   height: 150,
@@ -244,7 +225,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
                     ),
                   ),
                 ),
-                // 6a. Hiển thị không có dữ liệu dinh dưỡng
+                // Hiển thị không có dữ liệu dinh dưỡng
                 if (buildNutritionList().isEmpty)
                   const Padding(
                     padding: EdgeInsets.all(16),
@@ -265,7 +246,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
     );
   }
 
-  /// Hiển thị ô chỉ số dinh dưỡng ngắn bên dưới calories
+  // Hiển thị ô chỉ số dinh dưỡng ngắn bên dưới calories
   Widget macroBox(String title, String value) {
     return Expanded(
       child: Container(
@@ -287,7 +268,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
     );
   }
 
-  /// Hiển thị một dòng thông tin dinh dưỡng chi tiết
+  // Hiển thị một dòng thông tin dinh dưỡng chi tiết
   Widget nutriRow(String title, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -307,7 +288,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
     );
   }
 
-  /// Hiển thị hình ảnh món ăn hoặc ảnh mặc định khi không có ảnh
+  // Hiển thị hình ảnh món ăn hoặc ảnh mặc định khi không có ảnh
   Widget buildFoodImage() {
     if (food!.image == null || food!.image!.trim().isEmpty) {
       return Image.asset(
